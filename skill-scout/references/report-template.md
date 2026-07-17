@@ -1,47 +1,77 @@
 # Scout Report Template
 
-Use this exact structure. Length discipline: a single-skill repo → ~1 page; a 50-skill pack → 2 pages max. The report exists so the user does NOT have to read the repo — every sentence must earn its place.
-
-Write the whole report in the language the user asked in (translate the section headings too); keep verdict icons and file paths unchanged. In pre-install-gate mode with a 🔴 SKIP verdict, the Bottom line must open with an unmistakable "do not install this" and the reasons, not a soft suggestion.
+Use this structure. Keep a single-skill report near one page and a large-pack report under two pages. Write in the user's language; preserve verdict icons, source paths, commit hashes, dependency names, and license identifiers.
 
 ---
 
-# Scout Report: <repo name>
+# Scout Report: <repository>
 
-**Verdict: 🟢 INSTALL | 🟡 CHERRY-PICK | 🔴 SKIP** — <one sentence: the decisive reason>
+**Verdict: 🟢 INSTALL | 🟡 CHERRY-PICK | 🔴 SKIP** — <one sentence naming the decisive reason>
 
-> <2-3 line TL;DR: what it actually is, the one thing that makes it work (or fail), and what to do about it. A reader who stops here should still make the right call.>
+> <Two or three lines: what it really is, its active ingredient or fatal weakness, and the action to take.>
+
+## Source and audit coverage
+
+- Source: `<URL or local path>`
+- Revision: `<commit SHA, release, or “not available”>`
+- Inspected: `<counts for skills, scripts/executables, docs, manifests, hooks/commands/agents>`
+- Skipped or unavailable: `<symlinks, binaries, oversized files, submodules, history, issues, or “none”>`
+
+If an executable or install-relevant item was not inspected, explain why the verdict is capped at 🔴 SKIP FOR NOW.
 
 ## What it actually is
-One short paragraph: the repo's real identity, which may differ from its marketing. Include honest scale ("14 skills, ~4,000 lines, 3 working scripts") and how the claim compares to the contents.
+
+One paragraph comparing the claim with the contents. Include honest scale and identify whether this is a system, a recipe, or a prompt collection.
 
 ## How it works — the mechanism
-The heart of the report. Explain the machine the way a CTO explains architecture to a CEO: the workflow from trigger to output, where state lives, what loops or verifies, and how the pieces interact. Trace one concrete invocation end to end. Use a small diagram (mermaid or indented text) when the flow has branches or loops — skip it for linear flows.
 
-## The active ingredients (the essential 20%)
-For multi-skill packs, a table:
+Trace one concrete invocation from trigger to output: state, handoffs, scripts, verification, and completion. Use a small diagram only when branches or loops make prose harder to follow.
 
-| Skill | What it does | Why it's essential |
+## The active ingredients
+
+For a pack, use:
+
+| Skill/component | What it does | Why it materially changes the result |
 |---|---|---|
 
-Then one sentence on what the remaining skills are and why they didn't make the cut. For single skills, name the 1-2 components that pass the removal test (often a script or a checklist, not the prose).
+For a single skill, name the one or two components that survive the removal test.
 
 ## The filler
-Be specific and brief: "skills X, Y, Z are the same template with nouns swapped", "the 12 'expert persona' files add nothing a plain prompt wouldn't". If there's genuinely no filler, say that — it's a strong green flag worth stating.
 
-## 10-minute reading map
-For the curious user who wants to learn from the source. An ordered curriculum, not a file list — 2-4 real paths from the repo, minutes summing to ~10, each with what to notice:
+Name duplicated, generic, decorative, or misleading components. If none exists, say so briefly.
 
-1. `path/to/file.md` (4 min) — <what to notice while reading>
-2. `path/to/script.py` (3 min) — <what to notice>
+## Compatibility and ownership
 
-Everything not listed here is covered by this report; say so explicitly.
+| Check | Evidence | Consequence |
+|---|---|---|
+| Platform/runtime | <declared and observed constraints> | <works, mismatch, or unverified> |
+| Dependencies | <direct, build, optional, external services> | <cost and risk> |
+| License | <file/expression or missing> | <allowed use or blocker> |
+| Installation permissions | <global writes, privilege, hooks, persistence> | <what changes on the machine> |
+| Maintenance | <history, releases, issues> | <healthy, stale, or unverified> |
+| Context footprint | <descriptions and loaded content> | <trigger/cost impact> |
 
 ## Safety
-One line if clean ("Scanned scripts and hooks; no network calls, credential access, or persistence — clean"). If anything was flagged, quote the exact line with its file path and give your read on whether it's benign.
+
+- Behavior-like findings: `<file:line evidence and contextual judgment, or “none found in inspected files”>`
+- Context-only mentions: `<relevant leads or “none”>`
+- Coverage limits: `<anything static analysis could not inspect>`
+
+Static review cannot prove safety. State only what was or was not found within the inspected revision and scope.
+
+## 10-minute reading map
+
+List 2–4 real paths in reading order; estimates must total about ten minutes.
+
+1. `path/to/file` (4 min) — <what to notice>
+2. `path/to/file` (3 min) — <what to notice>
+
+Everything not listed is covered by the report.
 
 ## Worth stealing
-2-4 design patterns the author used that the user could apply to their own skills — this is the learning payoff, and it applies even to SKIP-rated repos (a failed repo often teaches one good trick). Skip the section only if there is truly nothing.
+
+Name 2–4 reusable design patterns. Omit only when there is genuinely nothing useful.
 
 ## Bottom line
-Restate the verdict as a concrete action: "Install it, start with skill X on a real task", "Extract only `foo/` and `bar/`, ignore the rest", or "Skip; if you want this capability, <the better alternative>."
+
+State the concrete action. For CHERRY-PICK, name the exact subset and ask for approval before installation. For SKIP, name a better alternative or what evidence would change the verdict.

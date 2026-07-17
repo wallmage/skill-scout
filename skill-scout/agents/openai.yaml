@@ -1,0 +1,4 @@
+interface:
+  display_name: "Skill Scout"
+  short_description: "Audit agent skills before installing them"
+  default_prompt: "Use $skill-scout to audit this skill repository before I install it."

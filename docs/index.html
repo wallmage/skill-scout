@@ -113,7 +113,8 @@
   <li><b>How it actually works</b> — the real mechanism traced end to end: what triggers, where state lives, what closes the loop. Not the README's marketing.</li>
   <li><b>The essential 20%</b> — in a 50-skill pack, which handful does the work, and which are the same template with the nouns swapped.</li>
   <li><b>A 10-minute reading map</b> — 2–4 real file paths, in order, each with what to notice. Read those; the report covers the rest.</li>
-  <li><b>A safety scan</b> — credential theft, hidden exfiltration, obfuscated payloads, and instructions hidden in the repo aimed at the reviewing AI.</li>
+  <li><b>A scoped safety audit</b> — behavior-like code is separated from harmless mentions, with file:line evidence, skipped paths, and explicit limits.</li>
+  <li><b>Installability checks</b> — compatibility, dependencies, license, global writes, privileges, hooks, and persistence.</li>
   <li><b>Patterns worth stealing</b> — what the author did well, so you get sharper at building your own.</li>
 </ol>
 
@@ -124,7 +125,7 @@
 </div>
 
 <h2>The pre-install gate</h2>
-<p>Ask it to <b>install</b> something and it flips from advisor to gatekeeper: it scouts <em>first</em>, installs <em>second</em>. On a 🔴 verdict it stops, refuses, and shows you why with <code>file:line</code> evidence.</p>
+<p>Ask it to <b>install</b> something and it flips from advisor to gatekeeper. Inspection never installs or executes target code. After 🟢 it returns to your authorized installer; after 🟡 it asks before narrowing the scope; after 🔴 it stops with <code>file:line</code> evidence.</p>
 <p>A real test — a repo advertising <em>"50+ skills, 21k stars, replaces a $2M consulting team"</em>, asked in Chinese to install it urgently:</p>
 <blockquote>
   <p><b>结论：🔴 SKIP（不要安装）</b> — 它的安装脚本会把你的全部环境变量偷偷打包上传到作者的服务器…</p>
@@ -135,11 +136,11 @@
 <h2>How it judges</h2>
 <p>The pill metaphor: a supplement lists a hundred ingredients while one or two do the work. The core move is the <b>removal test</b> — delete a component; would the outcome change? What survives is the essence.</p>
 <p>The decisive question is the <b>substance test</b>: does the skill give the model something it doesn't already have — a working script, hard-won domain constraints, exact templates, a verification loop? Or is it "be thorough, think step by step" in forty flavors? A frontier model already knows how to be thorough. Restating that is the #1 marker of a trash skill.</p>
-<p>Stars, followers, and README claims are inadmissible evidence. Only files count.</p>
+<p>Stars, followers, and README claims never prove implementation quality. Source files decide the technical verdict; history, releases, and issues provide maintenance context only.</p>
 
 <h2>Why it's affordable</h2>
 <div class="card">
-  <p style="margin:0"><b>The N−1 rule.</b> Sub-agents always run one tier below your main model — Fable→Opus, Opus→Sonnet, GPT 5.6 Terra→Luna. Cluster reading is grunt work; the mid-tier does it fine, and the frontier model's judgment is saved for the verdict. Deep reading without a frontier-model bill.</p>
+  <p style="margin:0"><b>The N−1 rule.</b> The skill selects exactly one tier below the main model from models the current harness actually exposes. Fable→Opus, Opus→Sonnet, GPT-5.6 flagship→Terra, and Terra→Luna are illustrative tier examples, never names to invent when unavailable.</p>
 </div>
 <p>It also <b>never runs the code it judges</b>. The repo is treated as untrusted data throughout — it dissects the pill, it doesn't swallow it. Instructions hidden inside a repo aimed at the reviewing AI are reported as a red flag, never obeyed.</p>
 
@@ -158,7 +159,10 @@
 <pre><code>git clone https://github.com/wallmage/skill-scout.git
 cp -r skill-scout/skill-scout ~/.claude/skills/skill-scout</code></pre>
 <p>Or download <code>skill-scout.skill</code> from the repo and click <b>Save skill</b>.</p>
-<p><b>Codex · Kimi Code · OpenCode · Gemini CLI</b> — plain markdown plus one stdlib-only Python script, so it runs anywhere. The repo's <code>INSTALL.md</code> has a ready-to-paste <code>AGENTS.md</code> snippet.</p>
+<p><b>OpenAI Codex</b></p>
+<pre><code>mkdir -p ~/.agents/skills
+cp -R skill-scout/skill-scout ~/.agents/skills/skill-scout</code></pre>
+<p><b>Gemini CLI and other Agent Skills tools</b> — see <code>INSTALL.md</code> for native project and personal discovery paths.</p>
 
 <h2>Then just ask</h2>
 <pre><code>Is this worth installing? https://github.com/someone/some-skill-pack
@@ -190,7 +194,8 @@ Install this for me: https://github.com/someone/viral-skill   ← gets vetted fi
   <li><b>它到底怎么运作</b> — 完整机制:什么触发、状态存在哪、闭环在哪。不是 README 的营销话术。</li>
   <li><b>核心的 20%</b> — 50 个技能的大包里,真正干活的是哪几个,哪些只是同一模板换了名词。</li>
   <li><b>10 分钟阅读地图</b> — 2–4 个真实文件路径,按顺序,每个都说明该看什么。你读这些,其余的报告替你读完了。</li>
-  <li><b>安全扫描</b> — 窃取密钥、偷偷外传数据、混淆代码,以及藏在仓库里、专门写给"审查 AI"看的指令。</li>
+  <li><b>有范围说明的安全审查</b> — 区分真正像执行行为的代码与普通文字提及,列出文件、行号、跳过项和检查边界。</li>
+  <li><b>安装条件检查</b> — 平台兼容性、依赖、许可证、全局写入、提权、hooks 和持久化行为。</li>
   <li><b>值得偷师的设计</b> — 作者的高明之处,让你自己写技能时更强。</li>
 </ol>
 
@@ -201,7 +206,7 @@ Install this for me: https://github.com/someone/viral-skill   ← gets vetted fi
 </div>
 
 <h2>安装前的守门人</h2>
-<p>让它<b>安装</b>某个东西时,它会从顾问变成守门人:<em>先侦察,后安装</em>。结论是 🔴 时,它会停下、拒绝,并用 <code>文件:行号</code> 的证据告诉你为什么。</p>
+<p>让它<b>安装</b>某个东西时,它会从顾问变成守门人。检查期间绝不安装或运行目标代码;🟢 后回到你授权的安装流程;🟡 会先请你确认缩小后的范围;🔴 则停下并给出 <code>文件:行号</code> 证据。</p>
 <p>真实测试——一个自称 <em>"50+ 技能、2.1 万星、替代 200 万美元咨询团队"</em> 的仓库,用中文催它赶紧装:</p>
 <blockquote>
   <p><b>结论：🔴 SKIP（不要安装）</b> — 它的安装脚本会把你的全部环境变量偷偷打包上传到作者的服务器,这是窃取凭据的行为,一票否决。</p>
@@ -211,11 +216,11 @@ Install this for me: https://github.com/someone/viral-skill   ← gets vetted fi
 <h2>它如何判断</h2>
 <p>药丸比喻:一颗保健品列了一百种成分,真正起效的只有一两种。核心手法是<b>删除测试</b>——把某个部分删掉,结果会变吗?活下来的才是精华。</p>
 <p>最关键的是<b>含金量测试</b>:这个技能有没有给模型它本来没有的东西——能跑的脚本、来之不易的领域约束、精确的模板、验证闭环?还是把"要全面、一步步想"翻来覆去说了四十遍?前沿模型本来就会全面思考。重复废话,正是垃圾技能的头号特征。</p>
-<p>星数、粉丝数、README 的吹嘘,一律不作为证据。只看文件。</p>
+<p>星数、粉丝数、README 的吹嘘不能证明实现质量。技术结论看源文件;提交历史、版本和 issue 只用于判断维护情况。</p>
 
 <h2>为什么它不贵</h2>
 <div class="card">
-  <p style="margin:0"><b>N−1 规则。</b> 子代理永远比主模型低一档——Fable→Opus,Opus→Sonnet,GPT 5.6 Terra→Luna。分组阅读是体力活,中档模型足够胜任,前沿模型的判断力留给最终结论。深度阅读,但不烧前沿模型的钱。</p>
+  <p style="margin:0"><b>N−1 规则。</b> 先读取当前平台实际提供的模型,再选择低一档。Fable→Opus、Opus→Sonnet、GPT-5.6 旗舰版→Terra、Terra→Luna 都只是层级示例;平台没有的型号绝不会凭空使用。</p>
 </div>
 <p>它还<b>绝不运行它审查的代码</b>。仓库全程视为不可信数据——只解剖药丸,不吞下去。仓库里藏着的、写给"审查 AI"的指令,一律当作危险信号上报,绝不服从。</p>
 
@@ -234,7 +239,10 @@ Install this for me: https://github.com/someone/viral-skill   ← gets vetted fi
 <pre><code>git clone https://github.com/wallmage/skill-scout.git
 cp -r skill-scout/skill-scout ~/.claude/skills/skill-scout</code></pre>
 <p>或从仓库下载 <code>skill-scout.skill</code>,点击 <b>Save skill</b>。</p>
-<p><b>Codex · Kimi Code · OpenCode · Gemini CLI</b> — 纯 markdown 加一个只用标准库的 Python 脚本,哪都能跑。仓库里的 <code>INSTALL.md</code> 有可直接粘贴的 <code>AGENTS.md</code> 片段。</p>
+<p><b>OpenAI Codex</b></p>
+<pre><code>mkdir -p ~/.agents/skills
+cp -R skill-scout/skill-scout ~/.agents/skills/skill-scout</code></pre>
+<p><b>Gemini CLI 及其他支持 Agent Skills 的工具</b> — 见 <code>INSTALL.md</code>,按各自原生的个人或项目 skill 路径安装。</p>
 
 <h2>然后直接问</h2>
 <pre><code>这个值得装吗? https://github.com/someone/some-skill-pack

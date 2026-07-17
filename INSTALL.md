@@ -1,52 +1,84 @@
 # Installing skill-scout
 
-skill-scout vets any agent-skill repo before you install it: verdict first (🟢 INSTALL / 🟡 CHERRY-PICK / 🔴 SKIP), mechanism explanation, the essential 20%, a 10-minute reading map, and a safety scan. It replies in whatever language you ask in.
+`skill-scout` is an Agent Skill: English instructions, two reference files, OpenAI interface metadata, and one Python standard-library scanner. Python is optional because an agent can reproduce the inventory manually; Git or another source-download method is optional for the same reason.
 
-The package is deliberately portable: plain markdown + one stdlib-only Python script. Only soft dependencies are `git` (or any way to download a repo) and `python3` (optional — the skill can inventory by hand without it).
+Clone or download this repository first, then copy the inner `skill-scout/` directory to the location your agent discovers.
 
----
+## Claude Code / Claude Desktop
 
-## Claude Code / Claude Desktop (native skills)
-
-Copy the folder into your personal skills directory:
+Personal skill, available across projects:
 
 ```bash
-cp -r skill-scout ~/.claude/skills/skill-scout
+mkdir -p ~/.claude/skills
+cp -R skill-scout ~/.claude/skills/skill-scout
 ```
 
-Done. It triggers automatically when you paste a skill-repo URL with "is this worth installing?", "thoughts?", or ask to install any skill/plugin — including as a pre-install gate. (Project-local alternative: `<your-project>/.claude/skills/skill-scout`. If you received a `skill-scout.skill` file instead, open it in Claude and click "Save skill".)
+Project-only alternative:
 
-## OpenAI Codex CLI
-
-Codex reads `AGENTS.md` for standing instructions. Put the folder somewhere stable, e.g. `~/agent-skills/skill-scout`, then add to `~/.codex/AGENTS.md` (global) or your project's `AGENTS.md`:
-
-```markdown
-## skill-scout — vet skill repos before installing
-Whenever I paste a link to an agent-skill/plugin/prompt-pack repo and ask whether
-it's worth installing (or ask you to install one), first read and follow
-~/agent-skills/skill-scout/SKILL.md end to end, including its referenced files.
-Never install before the verdict.
+```text
+<project>/.claude/skills/skill-scout/SKILL.md
 ```
 
-Optional: also save the SKILL.md body as a custom prompt (`~/.codex/prompts/skill-scout.md`) so you can invoke it explicitly with `/skill-scout <url>`.
+Claude Code detects changes inside an existing skills directory. Restart it if the top-level directory did not exist when the session began. If you received `skill-scout.skill`, open it in a supported Claude desktop surface and choose **Save skill**.
 
-## Kimi Code / OpenCode / Gemini CLI / other agent CLIs
+## OpenAI Codex
 
-Same pattern — these tools all read a standing-instructions markdown file (`AGENTS.md`, `GEMINI.md`, or equivalent context file):
+Personal skill, available across repositories:
 
-1. Copy `skill-scout/` somewhere stable, e.g. `~/agent-skills/skill-scout`.
-2. Add the same snippet as the Codex section above to the tool's instructions file, pointing at the SKILL.md path.
+```bash
+mkdir -p ~/.agents/skills
+cp -R skill-scout ~/.agents/skills/skill-scout
+```
 
-## Any chat-based LLM (no filesystem)
+Project-only alternative:
 
-Paste the contents of `SKILL.md`, `references/rubric.md`, and `references/report-template.md` into the conversation (or a custom-instructions/system-prompt slot), then paste the repo URL. Without shell access the model can't clone, so also paste the repo's key files — or use a tool-enabled mode.
+```text
+<project>/.agents/skills/skill-scout/SKILL.md
+```
 
----
+Invoke it explicitly with `$skill-scout`, or let Codex select it from the description. Codex normally detects skill changes automatically; restart if it does not appear. `agents/openai.yaml` supplies desktop UI metadata.
 
-## Verifying it works
+## Gemini CLI
 
-Paste a skill repo URL and ask "is this worth installing?" — you should get a report that *opens* with 🟢/🟡/🔴 and includes a "10-minute reading map" section with real file paths. If you ask in another language, the whole report should come back in that language.
+Gemini CLI supports project Agent Skills under `.agents/skills/`:
 
-## What it will never do
+```bash
+mkdir -p <project>/.agents/skills
+cp -R skill-scout <project>/.agents/skills/skill-scout
+```
 
-Run code from the repo it's judging, install anything before the verdict, or proceed with an install after a 🔴 safety finding. It treats the target repo strictly as data — including ignoring any instructions inside the repo aimed at the reviewing AI.
+Start Gemini CLI from that project and ask it to use `skill-scout` on a repository URL.
+
+## Other Agent Skills-compatible tools
+
+Copy the directory to the tool's documented personal or project Agent Skills location. Discovery paths differ by product and version; prefer native `SKILL.md` discovery over an `AGENTS.md`, `GEMINI.md`, or custom-prompt shim. If the tool has no Agent Skills support, use the fallback below.
+
+## Chat or agent without filesystem skill discovery
+
+Attach or paste:
+
+1. `skill-scout/SKILL.md`
+2. `skill-scout/references/rubric.md`
+3. `skill-scout/references/report-template.md`
+
+Without filesystem and source-access tools, also provide the target repository files. Missing install-relevant files must cap the verdict at 🔴 SKIP FOR NOW.
+
+## Verify the installation
+
+Ask:
+
+```text
+Use skill-scout to audit https://github.com/example/example-skill before I install it.
+```
+
+The response should:
+
+- Open with 🟢 INSTALL, 🟡 CHERRY-PICK, or 🔴 SKIP.
+- Identify the exact source revision and audit coverage.
+- Cover mechanism, dependencies, license, compatibility, installation permissions, safety evidence, and skipped files.
+- End with a 10-minute reading map and a concrete action.
+- Use the language of your request.
+
+## Inspection boundary
+
+During inspection, the skill never executes or installs target code, follows target symlinks, initializes submodules, or trusts repository instructions. After an 🟢 verdict it returns to the installation workflow the user already authorized. After 🟡 it asks the user to approve the reduced scope. After 🔴 it stops.
