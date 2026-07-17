@@ -732,10 +732,16 @@ def _safe_read(
     root: Path,
     root_fd: Optional[int],
     max_file_bytes: int,
+    expected_metadata: Optional[os.stat_result] = None,
+    expected_root: Optional[_ComponentSnapshot] = None,
 ) -> Tuple[Optional[str], Optional[str]]:
     if SECURE_RELATIVE_OPEN_SUPPORTED and root_fd is not None:
-        return _safe_read_strict(path, root, root_fd, max_file_bytes)
-    return _safe_read_fallback(path, root, max_file_bytes)
+        return _safe_read_strict(
+            path, root, root_fd, max_file_bytes, expected_metadata
+        )
+    return _safe_read_fallback(
+        path, root, max_file_bytes, expected_metadata, expected_root
+    )
 
 
 def _safe_read_strict(
@@ -743,6 +749,7 @@ def _safe_read_strict(
     root: Path,
     root_fd: int,
     max_file_bytes: int,
+    expected_metadata: Optional[os.stat_result] = None,
 ) -> Tuple[Optional[str], Optional[str]]:
     try:
         relative_path = path.relative_to(root)
@@ -751,6 +758,11 @@ def _safe_read_strict(
         return None, f"cannot read securely: {getattr(exc, 'strerror', None) or exc}"
 
     try:
+        opened_metadata = os.fstat(descriptor)
+        if expected_metadata is not None and not _same_file_metadata(
+            expected_metadata, opened_metadata
+        ):
+            return None, "path changed while it was being opened"
         return _read_bounded_descriptor(descriptor, max_file_bytes)
     finally:
         os.close(descriptor)
@@ -766,7 +778,47 @@ def _snapshot_from_metadata(path: Path, metadata: os.stat_result) -> _ComponentS
     )
 
 
-def _snapshot_components(path: Path, root: Path) -> List[_ComponentSnapshot]:
+def _same_file_metadata(
+    expected: os.stat_result, actual: os.stat_result
+) -> bool:
+    """Compare the record fields that must describe the opened descriptor."""
+    return (
+        expected.st_dev,
+        expected.st_ino,
+        expected.st_mode,
+        expected.st_size,
+        getattr(expected, "st_file_attributes", 0),
+    ) == (
+        actual.st_dev,
+        actual.st_ino,
+        actual.st_mode,
+        actual.st_size,
+        getattr(actual, "st_file_attributes", 0),
+    )
+
+
+def _same_file_identity(
+    expected: os.stat_result, actual: os.stat_result
+) -> bool:
+    """Compare the stable identity fields used by component snapshots."""
+    return (
+        expected.st_dev,
+        expected.st_ino,
+        stat.S_IFMT(expected.st_mode),
+        getattr(expected, "st_file_attributes", 0),
+    ) == (
+        actual.st_dev,
+        actual.st_ino,
+        stat.S_IFMT(actual.st_mode),
+        getattr(actual, "st_file_attributes", 0),
+    )
+
+
+def _snapshot_components(
+    path: Path,
+    root: Path,
+    expected_root: Optional[_ComponentSnapshot] = None,
+) -> List[_ComponentSnapshot]:
     """Snapshot root and every path component, refusing link-like objects."""
     relative_path = path.relative_to(root)
     parts = relative_path.parts
@@ -781,15 +833,21 @@ def _snapshot_components(path: Path, root: Path) -> List[_ComponentSnapshot]:
         metadata = current.lstat()
         if _is_link_like(metadata):
             raise ValueError(_link_like_reason(metadata))
-        snapshots.append(_snapshot_from_metadata(current, metadata))
+        snapshot = _snapshot_from_metadata(current, metadata)
+        if component is None and expected_root is not None and snapshot != expected_root:
+            raise ValueError("repository root changed while it was being read")
+        snapshots.append(snapshot)
     return snapshots
 
 
 def _snapshots_match(
-    snapshots: List[_ComponentSnapshot], path: Path, root: Path
+    snapshots: List[_ComponentSnapshot],
+    path: Path,
+    root: Path,
+    expected_root: Optional[_ComponentSnapshot] = None,
 ) -> bool:
     try:
-        return _snapshot_components(path, root) == snapshots
+        return _snapshot_components(path, root, expected_root) == snapshots
     except (OSError, ValueError):
         return False
 
@@ -798,10 +856,12 @@ def _safe_read_fallback(
     path: Path,
     root: Path,
     max_file_bytes: int,
+    expected_metadata: Optional[os.stat_result] = None,
+    expected_root: Optional[_ComponentSnapshot] = None,
 ) -> Tuple[Optional[str], Optional[str]]:
     """Guard an absolute-path open where descriptor-relative traversal is absent."""
     try:
-        snapshots = _snapshot_components(path, root)
+        snapshots = _snapshot_components(path, root, expected_root)
     except (OSError, ValueError) as exc:
         return None, f"cannot read securely: {getattr(exc, 'strerror', None) or exc}"
 
@@ -823,9 +883,13 @@ def _safe_read_fallback(
             return None, _link_like_reason(opened_metadata)
         if not stat.S_ISREG(opened_metadata.st_mode):
             return None, "not a regular file"
+        if expected_metadata is not None and not _same_file_metadata(
+            expected_metadata, opened_metadata
+        ):
+            return None, "path changed while it was being opened"
         if _snapshot_from_metadata(path, opened_metadata) != snapshots[-1]:
             return None, "path changed while it was being opened"
-        if not _snapshots_match(snapshots, path, root):
+        if not _snapshots_match(snapshots, path, root, expected_root):
             return None, "path changed while it was being opened"
         return _read_bounded_descriptor(descriptor, max_file_bytes)
     except OSError as exc:
@@ -923,16 +987,28 @@ def scan_repository(root: Path, max_file_bytes: int = DEFAULT_MAX_FILE_BYTES) ->
     root_fd = None
     try:
         root_path = requested_root.resolve(strict=True)
+        requested_after_resolution = requested_root.lstat()
+        resolved_metadata = root_path.lstat()
+        if (
+            _is_link_like(requested_after_resolution)
+            or not _same_file_identity(
+                requested_metadata, requested_after_resolution
+            )
+            or _is_link_like(resolved_metadata)
+            or not _same_file_identity(requested_metadata, resolved_metadata)
+        ):
+            raise ValueError("repository root changed while it was being resolved")
+        root_snapshot = _snapshot_from_metadata(root_path, requested_metadata)
         if SECURE_RELATIVE_OPEN_SUPPORTED:
             root_fd = _open_absolute_directory(root_path)
             opened = os.fstat(root_fd)
             requested_after_open = requested_root.lstat()
-            if _is_link_like(requested_after_open) or (
-                opened.st_dev,
-                opened.st_ino,
-            ) != (
-                requested_after_open.st_dev,
-                requested_after_open.st_ino,
+            if (
+                _is_link_like(requested_after_open)
+                or not _same_file_identity(
+                    requested_metadata, requested_after_open
+                )
+                or not _same_file_identity(requested_metadata, opened)
             ):
                 raise ValueError("repository root changed while it was being opened")
     except (OSError, ValueError):
@@ -1020,7 +1096,14 @@ def scan_repository(root: Path, max_file_bytes: int = DEFAULT_MAX_FILE_BYTES) ->
                     )
                     result.skipped.append(SkippedRecord(rel, "not a regular file"))
                     continue
-                text, reason = _safe_read(path, root_path, root_fd, max_file_bytes)
+                text, reason = _safe_read(
+                    path,
+                    root_path,
+                    root_fd,
+                    max_file_bytes,
+                    expected_metadata=metadata,
+                    expected_root=root_snapshot,
+                )
                 if reason:
                     _collect_path_evidence(
                         result, rel, "path only; content not read"
