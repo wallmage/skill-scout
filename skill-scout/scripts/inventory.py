@@ -25,6 +25,7 @@ except ImportError:  # Python 3.9 and 3.10
 
 
 DEFAULT_MAX_FILE_BYTES = 2 * 1024 * 1024
+LOSSY_DECODE_REASON = "undecodable UTF-8 (scanned via lossy decode)"
 REPARSE_POINT_ATTRIBUTE = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x0400)
 SECURE_RELATIVE_OPEN_SUPPORTED = (
     hasattr(os, "O_NOFOLLOW")
@@ -98,6 +99,7 @@ class Finding:
     snippet: str
     strength: str = "context"
     source_kind: str = "documentation"
+    lossy_decode: bool = False
 
 
 @dataclass(frozen=True)
@@ -930,10 +932,12 @@ def _read_bounded_descriptor(
     try:
         return payload.decode("utf-8"), None
     except UnicodeDecodeError:
-        return None, "undecodable UTF-8 text"
+        return payload.decode("utf-8", errors="replace"), LOSSY_DECODE_REASON
 
 
-def _scan_findings(record: FileRecord, text: str) -> List[Finding]:
+def _scan_findings(
+    record: FileRecord, text: str, lossy_decode: bool = False
+) -> List[Finding]:
     findings = []
     for line_number, line, source_kind, action_allowed in _iter_scannable_lines(
         record, text
@@ -951,6 +955,7 @@ def _scan_findings(record: FileRecord, text: str) -> List[Finding]:
                         snippet=line.strip()[:160],
                         strength="behavior",
                         source_kind=source_kind,
+                        lossy_decode=lossy_decode,
                     )
                 )
         for category, pattern in CONTEXT_PATTERNS:
@@ -965,6 +970,7 @@ def _scan_findings(record: FileRecord, text: str) -> List[Finding]:
                         snippet=line.strip()[:160],
                         strength="context",
                         source_kind=source_kind,
+                        lossy_decode=lossy_decode,
                     )
                 )
     return findings
@@ -1104,7 +1110,8 @@ def scan_repository(root: Path, max_file_bytes: int = DEFAULT_MAX_FILE_BYTES) ->
                     expected_metadata=metadata,
                     expected_root=root_snapshot,
                 )
-                if reason:
+                lossy_decode = text is not None and reason == LOSSY_DECODE_REASON
+                if reason and not lossy_decode:
                     _collect_path_evidence(
                         result, rel, "path only; content not read"
                     )
@@ -1121,7 +1128,11 @@ def scan_repository(root: Path, max_file_bytes: int = DEFAULT_MAX_FILE_BYTES) ->
                     result.skipped.append(SkippedRecord(rel, reason))
                     continue
                 assert text is not None
-                _collect_path_evidence(result, rel, "inspected")
+                if lossy_decode:
+                    _collect_path_evidence(result, rel, LOSSY_DECODE_REASON)
+                    result.skipped.append(SkippedRecord(rel, LOSSY_DECODE_REASON))
+                else:
+                    _collect_path_evidence(result, rel, "inspected")
 
                 is_skill = filename.lower() == "skill.md"
                 is_document = is_skill or ext in DOC_EXTS
@@ -1146,7 +1157,7 @@ def scan_repository(root: Path, max_file_bytes: int = DEFAULT_MAX_FILE_BYTES) ->
                     else "text"
                 )
                 name = description = None
-                if is_skill:
+                if is_skill and not lossy_decode:
                     name, description = parse_frontmatter(text)
                 record = FileRecord(
                     path=rel,
@@ -1157,7 +1168,8 @@ def scan_repository(root: Path, max_file_bytes: int = DEFAULT_MAX_FILE_BYTES) ->
                     name=name,
                     description=description,
                 )
-                result.scanned_files.append(record)
+                if not lossy_decode:
+                    result.scanned_files.append(record)
                 if executable:
                     result.executables.append(record)
                 if is_skill:
@@ -1166,10 +1178,13 @@ def scan_repository(root: Path, max_file_bytes: int = DEFAULT_MAX_FILE_BYTES) ->
                     result.documents.append(record)
                 if is_script:
                     result.scripts.append(record)
-                if is_manifest:
+                if is_manifest and not lossy_decode:
                     _parse_manifest(record, text, result)
-                result.install_surfaces.extend(_scan_install_surfaces(record, text))
-                result.findings.extend(_scan_findings(record, text))
+                if not lossy_decode:
+                    result.install_surfaces.extend(_scan_install_surfaces(record, text))
+                result.findings.extend(
+                    _scan_findings(record, text, lossy_decode=lossy_decode)
+                )
     finally:
         if root_fd is not None:
             os.close(root_fd)
@@ -1313,9 +1328,11 @@ def render_inventory(result: Inventory) -> str:
     context_findings = [item for item in result.findings if item.strength == "context"]
     lines.extend(["", f"=== BEHAVIOR-LIKE FINDINGS: {len(behavior_findings)} ==="])
     for item in behavior_findings:
+        lossy_marker = "[lossy decode] " if item.lossy_decode else ""
         lines.append(
             f"  [{_safe_display(item.category)}; {_safe_display(item.source_kind)}] "
-            f"{_safe_display(item.path)}:{item.line}: {_safe_display(item.snippet)}"
+            f"{lossy_marker}{_safe_display(item.path)}:{item.line}: "
+            f"{_safe_display(item.snippet)}"
         )
     if not behavior_findings:
         lines.append("No behavior-like findings found in the files inspected.")
@@ -1331,8 +1348,9 @@ def render_inventory(result: Inventory) -> str:
         items = by_category[category]
         lines.append(f"  [{_safe_display(category)}] {len(items)} mention(s)")
         for item in items[:5]:
+            lossy_marker = "[lossy decode] " if item.lossy_decode else ""
             lines.append(
-                f"    {_safe_display(item.path)}:{item.line}: "
+                f"    {lossy_marker}{_safe_display(item.path)}:{item.line}: "
                 f"{_safe_display(item.snippet)}"
             )
         if len(items) > 5:

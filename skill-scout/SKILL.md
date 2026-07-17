@@ -1,6 +1,6 @@
 ---
 name: skill-scout
-description: "Use when a user shares a skill or plugin repository URL, asks “is this worth installing?” or “thoughts?”, requests a comparison, pastes `curl ... | sh`, says “install this”, or uses `/plugin install`. Always run Skill Scout before every skill or plugin installation."
+description: "Use when a user shares a skill or plugin repository URL, asks “is this worth installing?” or “thoughts?”, requests a comparison, pastes `curl ... | sh`, says “install this”, or uses `/plugin install`. Always run Skill Scout before every skill or plugin installation. Provides an evidence-based read-only audit and an INSTALL / CHERRY-PICK / SKIP verdict with file:line evidence."
 ---
 
 # Skill Scout
