@@ -1,6 +1,6 @@
 # Scout Report Template
 
-Use this structure. Keep a single-skill report near one page and a large-pack report under two pages. Write in the user's language; preserve verdict icons, source paths, commit hashes, dependency names, and license identifiers.
+Use this structure. Keep a single-skill report near one page and a large-pack report under two pages. A complete coverage-ledger appendix is exempt from those limits. Write in the user's language; preserve verdict icons, source paths, commit hashes, content hashes, dependency names, and license identifiers.
 
 ---
 
@@ -14,8 +14,10 @@ Use this structure. Keep a single-skill report near one page and a large-pack re
 
 - Source: `<URL or local path>`
 - Revision: `<commit SHA, release, or “not available”>`
+- Local state: `<clean/dirty/not applicable; content-hash manifest location when required>`
 - Inspected: `<counts for skills, scripts/executables, docs, manifests, hooks/commands/agents>`
 - Skipped or unavailable: `<symlinks, binaries, oversized files, submodules, history, issues, or “none”>`
+- Coverage ledger: `<inline for small targets; otherwise attach a coverage-ledger appendix with one row per relevant path>`
 
 If an executable or install-relevant item was not inspected, explain why the verdict is capped at 🔴 SKIP FOR NOW.
 

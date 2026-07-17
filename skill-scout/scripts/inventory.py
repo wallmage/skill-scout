@@ -15,6 +15,7 @@ from pathlib import Path
 import re
 import stat
 import sys
+import unicodedata
 from typing import Any, Dict, Iterable, List, Optional, Pattern, Tuple
 
 try:
@@ -24,6 +25,11 @@ except ImportError:  # Python 3.9 and 3.10
 
 
 DEFAULT_MAX_FILE_BYTES = 2 * 1024 * 1024
+SECURE_RELATIVE_OPEN_SUPPORTED = (
+    hasattr(os, "O_NOFOLLOW")
+    and hasattr(os, "O_DIRECTORY")
+    and os.open in getattr(os, "supports_dir_fd", set())
+)
 SKIP_DIRS = {
     ".git",
     ".hg",
@@ -80,6 +86,7 @@ class FileRecord:
 class SkippedRecord:
     path: str
     reason: str
+    target: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -199,6 +206,13 @@ CONTEXT_PATTERNS: List[Tuple[str, Pattern[str]]] = [
 ]
 
 INSTALL_SURFACE_PATTERNS: List[Tuple[str, Pattern[str]]] = [
+    (
+        "package lifecycle script",
+        re.compile(
+            r"^\s*['\"](?:preinstall|install|postinstall|preuninstall|uninstall|postuninstall|prepare|prepublishOnly)['\"]\s*:",
+            re.IGNORECASE,
+        ),
+    ),
     ("elevated privilege", re.compile(r"^\s*(sudo|doas)\s+\S+")),
     (
         "global package install",
@@ -568,6 +582,8 @@ def _iter_scannable_lines(
     source_kind = (
         "executable"
         if record.kind in {"script", "manifest"} or record.executable
+        else "integration"
+        if record.kind == "integration"
         else "documentation"
     )
     in_fence = False
@@ -576,7 +592,7 @@ def _iter_scannable_lines(
         if source_kind == "documentation" and stripped.startswith(("```", "~~~")):
             in_fence = not in_fence
             continue
-        yield line_number, line, source_kind, source_kind == "executable" or in_fence
+        yield line_number, line, source_kind, source_kind != "documentation" or in_fence
 
 
 def _scan_install_surfaces(record: FileRecord, text: str) -> List[EvidenceRecord]:
@@ -605,34 +621,75 @@ def _relative(path: Path, root: Path) -> str:
     return path.relative_to(root).as_posix()
 
 
-def _safe_read(path: Path, root: Path, max_file_bytes: int) -> Tuple[Optional[str], Optional[str]]:
-    try:
-        metadata = path.lstat()
-    except OSError as exc:
-        return None, f"cannot stat: {exc.strerror or exc}"
+def _open_relative_file(root_fd: int, relative_path: Path) -> int:
+    """Open a repository file without resolving a replaceable parent path."""
+    parts = relative_path.parts
+    if not parts or any(part in {"", ".", ".."} for part in parts):
+        raise ValueError("invalid repository-relative path")
 
-    if stat.S_ISLNK(metadata.st_mode):
-        return None, "symbolic link"
-    if not stat.S_ISREG(metadata.st_mode):
-        return None, "not a regular file"
-    if metadata.st_size > max_file_bytes:
-        return None, f"exceeds {max_file_bytes}-byte read limit"
+    directory_fd = os.dup(root_fd)
+    try:
+        directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+        directory_flags |= getattr(os, "O_CLOEXEC", 0)
+        for component in parts[:-1]:
+            next_fd = os.open(
+                component,
+                directory_flags,
+                dir_fd=directory_fd,
+            )
+            os.close(directory_fd)
+            directory_fd = next_fd
+
+        file_flags = os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
+        return os.open(parts[-1], file_flags, dir_fd=directory_fd)
+    finally:
+        os.close(directory_fd)
+
+
+def _open_absolute_directory(path: Path) -> int:
+    """Open an absolute directory one no-follow component at a time."""
+    if not path.is_absolute():
+        raise ValueError("expected an absolute repository path")
+    directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    directory_flags |= getattr(os, "O_CLOEXEC", 0)
+    directory_fd = os.open(path.anchor, directory_flags)
+    try:
+        for component in path.parts[1:]:
+            next_fd = os.open(
+                component,
+                directory_flags,
+                dir_fd=directory_fd,
+            )
+            os.close(directory_fd)
+            directory_fd = next_fd
+        return directory_fd
+    except Exception:
+        os.close(directory_fd)
+        raise
+
+
+def _safe_read(
+    path: Path,
+    root: Path,
+    root_fd: Optional[int],
+    max_file_bytes: int,
+) -> Tuple[Optional[str], Optional[str]]:
+    if not SECURE_RELATIVE_OPEN_SUPPORTED or root_fd is None:
+        return None, "secure no-follow reads unsupported on this platform"
 
     try:
-        resolved = path.resolve(strict=True)
-        resolved.relative_to(root)
-    except (OSError, ValueError):
-        return None, "resolves outside repository"
+        relative_path = path.relative_to(root)
+        descriptor = _open_relative_file(root_fd, relative_path)
+    except (OSError, ValueError) as exc:
+        return None, f"cannot read securely: {getattr(exc, 'strerror', None) or exc}"
 
-    flags = os.O_RDONLY
-    if hasattr(os, "O_NOFOLLOW"):
-        flags |= os.O_NOFOLLOW
-    try:
-        descriptor = os.open(str(path), flags)
-        with os.fdopen(descriptor, "rb") as handle:
-            payload = handle.read(max_file_bytes + 1)
-    except OSError as exc:
-        return None, f"cannot read: {exc.strerror or exc}"
+    with os.fdopen(descriptor, "rb") as handle:
+        metadata = os.fstat(handle.fileno())
+        if not stat.S_ISREG(metadata.st_mode):
+            return None, "not a regular file"
+        if metadata.st_size > max_file_bytes:
+            return None, f"exceeds {max_file_bytes}-byte read limit"
+        payload = handle.read(max_file_bytes + 1)
 
     if len(payload) > max_file_bytes:
         return None, f"exceeds {max_file_bytes}-byte read limit"
@@ -680,88 +737,151 @@ def _scan_findings(record: FileRecord, text: str) -> List[Finding]:
 
 def scan_repository(root: Path, max_file_bytes: int = DEFAULT_MAX_FILE_BYTES) -> Inventory:
     """Safely collect a deterministic inventory of *root*."""
-    root_path = Path(root).expanduser().resolve(strict=True)
-    if not root_path.is_dir():
+    requested_root = Path(root).expanduser()
+    try:
+        requested_metadata = requested_root.lstat()
+    except OSError as exc:
+        raise ValueError(f"cannot inspect repository root: {exc}") from exc
+    if stat.S_ISLNK(requested_metadata.st_mode):
+        raise ValueError("repository root must not be a symbolic link")
+    if not stat.S_ISDIR(requested_metadata.st_mode):
         raise ValueError(f"not a directory: {root}")
+
+    root_fd = None
+    try:
+        root_path = requested_root.resolve(strict=True)
+        if SECURE_RELATIVE_OPEN_SUPPORTED:
+            root_fd = _open_absolute_directory(root_path)
+            opened = os.fstat(root_fd)
+            requested_after_open = requested_root.lstat()
+            if stat.S_ISLNK(requested_after_open.st_mode) or (
+                opened.st_dev,
+                opened.st_ino,
+            ) != (
+                requested_after_open.st_dev,
+                requested_after_open.st_ino,
+            ):
+                raise ValueError("repository root changed while it was being opened")
+    except (OSError, ValueError):
+        if root_fd is not None:
+            os.close(root_fd)
+        raise
 
     result = Inventory(root=str(root_path))
 
-    for dirpath, dirnames, filenames in os.walk(root_path, topdown=True, followlinks=False):
-        current = Path(dirpath)
-        kept_dirs = []
-        for dirname in sorted(dirnames):
-            child = current / dirname
-            rel = _relative(child, root_path)
-            if child.is_symlink():
-                result.skipped.append(SkippedRecord(rel, "symbolic link"))
-            elif dirname in SKIP_DIRS:
-                result.skipped.append(SkippedRecord(rel, "excluded directory"))
-            else:
-                kept_dirs.append(dirname)
-        dirnames[:] = kept_dirs
+    def record_walk_error(exc: OSError) -> None:
+        error_path = Path(exc.filename) if exc.filename else root_path
+        try:
+            rel = _relative(error_path, root_path)
+        except ValueError:
+            rel = error_path.name or "."
+        result.skipped.append(
+            SkippedRecord(rel, f"cannot traverse: {exc.strerror or exc}")
+        )
 
-        for filename in sorted(filenames):
-            path = current / filename
-            rel = _relative(path, root_path)
-            _collect_path_evidence(result, rel)
-            try:
-                metadata = path.lstat()
-            except OSError as exc:
-                result.skipped.append(
-                    SkippedRecord(rel, f"cannot stat: {exc.strerror or exc}")
+    try:
+        for dirpath, dirnames, filenames in os.walk(
+            root_path,
+            topdown=True,
+            onerror=record_walk_error,
+            followlinks=False,
+        ):
+            current = Path(dirpath)
+            kept_dirs = []
+            for dirname in sorted(dirnames):
+                child = current / dirname
+                rel = _relative(child, root_path)
+                if child.is_symlink():
+                    try:
+                        target = os.readlink(child)
+                    except OSError:
+                        target = None
+                    result.skipped.append(SkippedRecord(rel, "symbolic link", target))
+                elif dirname in SKIP_DIRS:
+                    result.skipped.append(SkippedRecord(rel, "excluded directory"))
+                else:
+                    kept_dirs.append(dirname)
+            dirnames[:] = kept_dirs
+
+            for filename in sorted(filenames):
+                path = current / filename
+                rel = _relative(path, root_path)
+                _collect_path_evidence(result, rel)
+                try:
+                    metadata = path.lstat()
+                except OSError as exc:
+                    result.skipped.append(
+                        SkippedRecord(rel, f"cannot stat: {exc.strerror or exc}")
+                    )
+                    continue
+
+                executable = bool(metadata.st_mode & 0o111) and stat.S_ISREG(metadata.st_mode)
+                ext = path.suffix.lower()
+                if stat.S_ISLNK(metadata.st_mode):
+                    try:
+                        target = os.readlink(path)
+                    except OSError:
+                        target = None
+                    result.skipped.append(SkippedRecord(rel, "symbolic link", target))
+                    continue
+                text, reason = _safe_read(path, root_path, root_fd, max_file_bytes)
+                if executable:
+                    result.executables.append(
+                        FileRecord(rel, 0, metadata.st_size, "executable", executable=True)
+                    )
+                if reason:
+                    result.skipped.append(SkippedRecord(rel, reason))
+                    continue
+                assert text is not None
+
+                is_skill = filename.lower() == "skill.md"
+                is_document = is_skill or ext in DOC_EXTS
+                is_script = ext in SCRIPT_EXTS or text.startswith("#!")
+                is_manifest = _manifest_category(rel) is not None
+                is_integration = bool(
+                    INTEGRATION_DIRS.intersection(
+                        part.lower() for part in Path(rel).parts[:-1]
+                    )
                 )
-                continue
-
-            executable = bool(metadata.st_mode & 0o111) and stat.S_ISREG(metadata.st_mode)
-            ext = path.suffix.lower()
-            text, reason = _safe_read(path, root_path, max_file_bytes)
-            if executable:
-                result.executables.append(
-                    FileRecord(rel, 0, metadata.st_size, "executable", executable=True)
+                kind = (
+                    "skill"
+                    if is_skill
+                    else "script"
+                    if is_script
+                    else "integration"
+                    if is_integration
+                    else "manifest"
+                    if is_manifest
+                    else "document"
+                    if is_document
+                    else "text"
                 )
-            if reason:
-                result.skipped.append(SkippedRecord(rel, reason))
-                continue
-            assert text is not None
-
-            is_skill = filename.lower() == "skill.md"
-            is_document = is_skill or ext in DOC_EXTS
-            is_script = ext in SCRIPT_EXTS or text.startswith("#!")
-            is_manifest = _manifest_category(rel) is not None
-            kind = (
-                "skill"
-                if is_skill
-                else "script"
-                if is_script
-                else "manifest"
-                if is_manifest
-                else "document"
-                if is_document
-                else "text"
-            )
-            name = description = None
-            if is_skill:
-                name, description = parse_frontmatter(text)
-            record = FileRecord(
-                path=rel,
-                lines=len(text.splitlines()),
-                size=metadata.st_size,
-                kind=kind,
-                executable=executable,
-                name=name,
-                description=description,
-            )
-            result.scanned_files.append(record)
-            if is_skill:
-                result.skills.append(record)
-            if is_document:
-                result.documents.append(record)
-            if is_script:
-                result.scripts.append(record)
-            if is_manifest:
-                _parse_manifest(record, text, result)
-            result.install_surfaces.extend(_scan_install_surfaces(record, text))
-            result.findings.extend(_scan_findings(record, text))
+                name = description = None
+                if is_skill:
+                    name, description = parse_frontmatter(text)
+                record = FileRecord(
+                    path=rel,
+                    lines=len(text.splitlines()),
+                    size=metadata.st_size,
+                    kind=kind,
+                    executable=executable,
+                    name=name,
+                    description=description,
+                )
+                result.scanned_files.append(record)
+                if is_skill:
+                    result.skills.append(record)
+                if is_document:
+                    result.documents.append(record)
+                if is_script:
+                    result.scripts.append(record)
+                if is_manifest:
+                    _parse_manifest(record, text, result)
+                result.install_surfaces.extend(_scan_install_surfaces(record, text))
+                result.findings.extend(_scan_findings(record, text))
+    finally:
+        if root_fd is not None:
+            os.close(root_fd)
 
     for collection in (
         result.scanned_files,
@@ -789,22 +909,39 @@ def scan_repository(root: Path, max_file_bytes: int = DEFAULT_MAX_FILE_BYTES) ->
     return result
 
 
+def _safe_display(value: Any) -> str:
+    """Escape control and directional characters in untrusted report fields."""
+    escaped = []
+    for character in str(value):
+        codepoint = ord(character)
+        if unicodedata.category(character) in {"Cc", "Cf"}:
+            if codepoint <= 0xFF:
+                escaped.append(f"\\x{codepoint:02x}")
+            elif codepoint <= 0xFFFF:
+                escaped.append(f"\\u{codepoint:04x}")
+            else:
+                escaped.append(f"\\U{codepoint:08x}")
+        else:
+            escaped.append(character)
+    return "".join(escaped)
+
+
 def render_inventory(result: Inventory) -> str:
     """Render the inventory as concise, human-readable text."""
-    lines = [f"=== INVENTORY: {Path(result.root).name} ===", ""]
+    lines = [f"=== INVENTORY: {_safe_display(Path(result.root).name)} ===", ""]
     lines.append(f"Skills found: {len(result.skills)}")
     for item in result.skills:
-        lines.append(f"  [{item.lines:>5} lines] {item.path}")
-        lines.append(f"          name: {item.name or '(no name)'}")
-        lines.append(f"          desc: {item.description or '(no description)'}")
+        lines.append(f"  [{item.lines:>5} lines] {_safe_display(item.path)}")
+        lines.append(f"          name: {_safe_display(item.name or '(no name)')}")
+        lines.append(f"          desc: {_safe_display(item.description or '(no description)')}")
 
     lines.extend(["", f"Scripts: {len(result.scripts)}"])
     for item in result.scripts:
-        lines.append(f"  [{item.lines:>5} lines] {item.path}")
+        lines.append(f"  [{item.lines:>5} lines] {_safe_display(item.path)}")
 
     lines.extend(["", f"Executable files: {len(result.executables)}"])
     for item in result.executables:
-        lines.append(f"  {item.path}")
+        lines.append(f"  {_safe_display(item.path)}")
 
     document_lines = sum(item.lines for item in result.documents)
     lines.extend(
@@ -816,33 +953,41 @@ def render_inventory(result: Inventory) -> str:
 
     lines.extend(["", f"Integration surfaces: {len(result.integration_paths)}"])
     for item in result.integration_paths:
-        lines.append(f"  [{item.category}] {item.path}")
+        lines.append(f"  [{_safe_display(item.category)}] {_safe_display(item.path)}")
 
     lines.extend(["", f"Manifests and lockfiles: {len(result.manifests)}"])
     for item in result.manifests:
-        lines.append(f"  [{item.category}] {item.path}")
+        lines.append(f"  [{_safe_display(item.category)}] {_safe_display(item.path)}")
 
     lines.extend(["", f"Declared dependencies: {len(result.dependencies)}"])
     for item in result.dependencies:
         specification = f" {item.specification}" if item.specification else ""
         lines.append(
-            f"  [{item.group}] {item.name}{specification} ({item.path})"
+            f"  [{_safe_display(item.group)}] {_safe_display(item.name)}"
+            f"{_safe_display(specification)} ({_safe_display(item.path)})"
         )
 
     lines.extend(["", f"License evidence: {len(result.licenses)}"])
     for item in result.licenses:
-        lines.append(f"  [{item.category}] {item.path}: {item.detail}")
+        lines.append(
+            f"  [{_safe_display(item.category)}] {_safe_display(item.path)}: "
+            f"{_safe_display(item.detail)}"
+        )
 
     lines.extend(["", f"Compatibility evidence: {len(result.compatibility)}"])
     for item in result.compatibility:
-        lines.append(f"  [{item.category}] {item.detail} ({item.path})")
+        lines.append(
+            f"  [{_safe_display(item.category)}] {_safe_display(item.detail)} "
+            f"({_safe_display(item.path)})"
+        )
 
     lines.extend(
         ["", f"Install and permission surfaces: {len(result.install_surfaces)}"]
     )
     for item in result.install_surfaces:
         lines.append(
-            f"  [{item.category}] {item.path}:{item.line}: {item.detail}"
+            f"  [{_safe_display(item.category)}] {_safe_display(item.path)}:"
+            f"{item.line}: {_safe_display(item.detail)}"
         )
 
     lines.extend(
@@ -854,14 +999,18 @@ def render_inventory(result: Inventory) -> str:
         ]
     )
     for item in result.skipped:
-        lines.append(f"  {item.path}: {item.reason}")
+        target = f" -> {_safe_display(item.target)}" if item.target is not None else ""
+        lines.append(
+            f"  {_safe_display(item.path)}: {_safe_display(item.reason)}{target}"
+        )
 
     behavior_findings = [item for item in result.findings if item.strength == "behavior"]
     context_findings = [item for item in result.findings if item.strength == "context"]
     lines.extend(["", f"=== BEHAVIOR-LIKE FINDINGS: {len(behavior_findings)} ==="])
     for item in behavior_findings:
         lines.append(
-            f"  [{item.category}; {item.source_kind}] {item.path}:{item.line}: {item.snippet}"
+            f"  [{_safe_display(item.category)}; {_safe_display(item.source_kind)}] "
+            f"{_safe_display(item.path)}:{item.line}: {_safe_display(item.snippet)}"
         )
     if not behavior_findings:
         lines.append("No behavior-like findings found in the files inspected.")
@@ -875,9 +1024,12 @@ def render_inventory(result: Inventory) -> str:
         by_category.setdefault(item.category, []).append(item)
     for category in sorted(by_category):
         items = by_category[category]
-        lines.append(f"  [{category}] {len(items)} mention(s)")
+        lines.append(f"  [{_safe_display(category)}] {len(items)} mention(s)")
         for item in items[:5]:
-            lines.append(f"    {item.path}:{item.line}: {item.snippet}")
+            lines.append(
+                f"    {_safe_display(item.path)}:{item.line}: "
+                f"{_safe_display(item.snippet)}"
+            )
         if len(items) > 5:
             lines.append(f"    ... and {len(items) - 5} more")
     if not context_findings:

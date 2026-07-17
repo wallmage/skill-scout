@@ -95,7 +95,7 @@
 - [ ] Run `python3 -m unittest discover -s tests -v`.
 - [ ] Run the official skill validator and validate `agents/openai.yaml`.
 - [ ] Run the scanner against this repository and representative hostile fixtures.
-- [ ] Rebuild the ZIP from the four required resources plus `agents/openai.yaml`.
+- [ ] Rebuild the ZIP from the four required resources, `agents/openai.yaml`, and the standalone MIT license.
 - [ ] Run `unzip -t skill-scout.skill` and compare archive files with the source tree.
 - [ ] Request an independent N-1 review; fix every critical or important finding.
 - [ ] Re-run the full verification set, commit, and push the branch to GitHub.
