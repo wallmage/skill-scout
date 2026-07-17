@@ -98,6 +98,8 @@ class EvidenceRecord:
     path: str
     detail: str
     line: int = 0
+    strength: str = "context"
+    source_kind: str = "documentation"
 
 
 @dataclass(frozen=True)
@@ -126,74 +128,106 @@ class Inventory:
     install_surfaces: List[EvidenceRecord] = field(default_factory=list)
 
 
-SUSPICIOUS: List[Tuple[str, Pattern[str]]] = [
+BEHAVIOR_PATTERNS: List[Tuple[str, Pattern[str]]] = [
     (
         "network call",
         re.compile(
-            r"\b(curl|wget|urllib\.request|requests\.(get|post|put)|fetch\(|axios|http\.client|XMLHttpRequest)\b"
+            r"\b(curl|wget)\b\s+\S+|requests\.(get|post|put|patch|delete|request)\s*\(|urllib\.request\.(urlopen|Request)\s*\(|fetch\s*\(|axios\.(get|post|put|patch|delete|request)\s*\(|XMLHttpRequest\s*\(|http\.client\.(HTTP|HTTPS)Connection\s*\(",
+            re.IGNORECASE,
         ),
     ),
     (
         "obfuscation",
         re.compile(
-            r"\b(base64\s+(-d|--decode)|b64decode|atob\(|fromCharCode|bytes\.fromhex|exec\(compile)\b"
+            r"\bbase64\s+(-d|--decode)\b|base64\.b64decode\s*\(|\batob\s*\(|String\.fromCharCode\s*\(|bytes\.fromhex\s*\(|exec\s*\(\s*compile\s*\(|Buffer\.from\s*\([^\n]*['\"]base64['\"]",
+            re.IGNORECASE,
         ),
     ),
     (
         "shell exec",
-        re.compile(r"\b(eval\s|subprocess|os\.system|child_process|execSync|popen)\b"),
+        re.compile(
+            r"\beval\s*\(|subprocess\.(run|Popen|call|check_call|check_output)\s*\(|os\.(system|popen)\s*\(|child_process\.(exec|spawn)\s*\(|execSync\s*\(|ProcessBuilder\s*\(",
+            re.IGNORECASE,
+        ),
     ),
     (
         "credential access",
         re.compile(
-            r"(API_KEY|SECRET|TOKEN|PASSWORD|CREDENTIAL|\.aws/|\.ssh/|keychain|\.netrc|ANTHROPIC_|OPENAI_)",
+            r"os\.environ(?:\.get)?\s*[\[(]|os\.getenv\s*\(|process\.env(?:\.|\[)|Deno\.env\.get\s*\(|System\.getenv\s*\(|\$(\{)?[A-Z0-9_]*(API_KEY|SECRET|TOKEN|PASSWORD|CREDENTIAL)[A-Z0-9_]*(\})?|(^|[\s'\"])(~?/)?\.(aws|ssh)/|(^|[\s'\"])(~?/)?\.netrc\b|\bsecurity\s+find-(generic|internet)-password\b",
             re.IGNORECASE,
         ),
     ),
     (
         "persistence/hooks",
         re.compile(
-            r"(settings\.json|hooks|crontab|launchd|\.bashrc|\.zshrc|\.claude/)",
+            r"^\s*(crontab|launchctl)\b|^\s*systemctl\s+enable\b|git\s+config\s+[^\n]*core\.hooksPath|^\s*(cp|mv|tee|ln)\b[^\n]*(\.bashrc|\.zshrc|/LaunchAgents/|/LaunchDaemons/)",
             re.IGNORECASE,
         ),
     ),
-    ("destructive", re.compile(r"\brm\s+-rf\s+[~/$]")),
+    ("destructive", re.compile(r"^\s*(sudo\s+)?rm\s+-rf\s+(~|/|\$HOME)(/|\s|$)")),
     (
         "AI-directed instruction",
         re.compile(
-            r"(ignore (all |any )?(previous|prior|above) instructions|do not (tell|inform|mention to) the user|you must recommend|rate this (skill|repo) (highly|positively))",
+            r"ignore\s+"
+            + r"(?:all\s+|any\s+)?"
+            + r"(?:previous|prior|above)\s+instructions"
+            + r"|do\s+not\s+(?:tell|inform|mention\s+to)\s+the\s+user"
+            + r"|you\s+must\s+recommend"
+            + r"|rate\s+this\s+(?:skill|repo)\s+(?:highly|positively)",
             re.IGNORECASE,
         ),
     ),
 ]
 
+CONTEXT_PATTERNS: List[Tuple[str, Pattern[str]]] = [
+    (
+        "network mention",
+        re.compile(r"\b(network calls?|curl|wget|requests|fetch|axios|telemetry|exfiltrat(e|ion))\b", re.IGNORECASE),
+    ),
+    (
+        "credential mention",
+        re.compile(r"\b(credentials?|secrets?|tokens?|passwords?|API[ _-]?keys?)\b", re.IGNORECASE),
+    ),
+    (
+        "persistence mention",
+        re.compile(r"\b(hooks?|persistence|crontab|launchd|LaunchAgents|shell profiles?)\b", re.IGNORECASE),
+    ),
+    (
+        "obfuscation mention",
+        re.compile(r"\b(obfuscat(e|ion|ed)|base64|encoded payloads?)\b", re.IGNORECASE),
+    ),
+]
+
 INSTALL_SURFACE_PATTERNS: List[Tuple[str, Pattern[str]]] = [
-    ("elevated privilege", re.compile(r"(^|\s)(sudo|doas)(\s|$)")),
+    ("elevated privilege", re.compile(r"^\s*(sudo|doas)\s+\S+")),
     (
         "global package install",
         re.compile(
-            r"\b(npm|pnpm|yarn)\b[^\n]*(\s-g\b|\s--global\b)|\b(pipx|brew|apt-get|apt|dnf|yum)\s+install\b",
+            r"^\s*(sudo\s+)?(npm|pnpm|yarn)\b[^\n]*(\s-g\b|\s--global\b)|^\s*(sudo\s+)?(pipx|brew|apt-get|apt|dnf|yum)\s+install\b",
             re.IGNORECASE,
         ),
     ),
     (
         "outside-repository write",
         re.compile(
-            r"\b(cp|mv|install|mkdir|tee|touch|ln|rsync)\b[^\n]*(~(?:/|\b)|/(usr|etc|opt|Library|var|home)/|\$HOME\b|\$\{HOME\}|%USERPROFILE%)",
+            r"^\s*(sudo\s+)?(cp|mv|install|mkdir|tee|touch|ln|rsync)\b[^\n]*(~(?:/|\b)|/(usr|etc|opt|Library|var|home)/|\$HOME\b|\$\{HOME\}|%USERPROFILE%)",
             re.IGNORECASE,
         ),
     ),
-    ("permission change", re.compile(r"\b(chmod|chown|chgrp)\b", re.IGNORECASE)),
+    (
+        "permission change",
+        re.compile(r"^\s*(sudo\s+)?(chmod|chown|chgrp)\b|os\.(chmod|chown)\s*\(", re.IGNORECASE),
+    ),
     (
         "persistence registration",
         re.compile(
-            r"\b(crontab|launchctl|systemctl\s+enable)\b|(^|[/\\])(LaunchAgents|LaunchDaemons)([/\\]|$)|\.(bashrc|zshrc|profile)\b",
+            r"^\s*(sudo\s+)?(crontab|launchctl)\b|^\s*(sudo\s+)?systemctl\s+enable\b|^\s*(sudo\s+)?(cp|mv|tee|ln)\b[^\n]*(\.bashrc|\.zshrc|/LaunchAgents/|/LaunchDaemons/)",
             re.IGNORECASE,
         ),
     ),
     (
         "remote installer execution",
-        re.compile(r"\b(curl|wget)\b[^\n|]*\|\s*(sh|bash|zsh|python|python3)\b", re.IGNORECASE),
+        re.compile(r"^\s*(curl|wget)\b[^\n|]*\|\s*(sh|bash|zsh|python|python3)\b", re.IGNORECASE),
     ),
 ]
 
@@ -528,13 +562,41 @@ def _parse_manifest(record: FileRecord, text: str, result: Inventory) -> None:
         _parse_cargo_toml(text, record.path, result)
 
 
+def _iter_scannable_lines(
+    record: FileRecord, text: str
+) -> Iterable[Tuple[int, str, str, bool]]:
+    source_kind = (
+        "executable"
+        if record.kind in {"script", "manifest"} or record.executable
+        else "documentation"
+    )
+    in_fence = False
+    for line_number, line in enumerate(text.splitlines(), 1):
+        stripped = line.strip()
+        if source_kind == "documentation" and stripped.startswith(("```", "~~~")):
+            in_fence = not in_fence
+            continue
+        yield line_number, line, source_kind, source_kind == "executable" or in_fence
+
+
 def _scan_install_surfaces(record: FileRecord, text: str) -> List[EvidenceRecord]:
     surfaces = []
-    for line_number, line in enumerate(text.splitlines(), 1):
+    for line_number, line, source_kind, action_allowed in _iter_scannable_lines(
+        record, text
+    ):
+        if not action_allowed:
+            continue
         for category, pattern in INSTALL_SURFACE_PATTERNS:
             if pattern.search(line):
                 surfaces.append(
-                    EvidenceRecord(category, record.path, line.strip()[:160], line_number)
+                    EvidenceRecord(
+                        category,
+                        record.path,
+                        line.strip()[:160],
+                        line_number,
+                        "behavior",
+                        source_kind,
+                    )
                 )
     return surfaces
 
@@ -580,10 +642,28 @@ def _safe_read(path: Path, root: Path, max_file_bytes: int) -> Tuple[Optional[st
 
 
 def _scan_findings(record: FileRecord, text: str) -> List[Finding]:
-    source_kind = "executable" if record.kind == "script" else "documentation"
     findings = []
-    for line_number, line in enumerate(text.splitlines(), 1):
-        for category, pattern in SUSPICIOUS:
+    for line_number, line, source_kind, action_allowed in _iter_scannable_lines(
+        record, text
+    ):
+        behavior_families = set()
+        for category, pattern in BEHAVIOR_PATTERNS:
+            if pattern.search(line) and (action_allowed or category == "AI-directed instruction"):
+                family = category.split()[0]
+                behavior_families.add(family)
+                findings.append(
+                    Finding(
+                        category=category,
+                        path=record.path,
+                        line=line_number,
+                        snippet=line.strip()[:160],
+                        strength="behavior",
+                        source_kind=source_kind,
+                    )
+                )
+        for category, pattern in CONTEXT_PATTERNS:
+            if category.split()[0] in behavior_families:
+                continue
             if pattern.search(line):
                 findings.append(
                     Finding(
@@ -591,6 +671,7 @@ def _scan_findings(record: FileRecord, text: str) -> List[Finding]:
                         path=record.path,
                         line=line_number,
                         snippet=line.strip()[:160],
+                        strength="context",
                         source_kind=source_kind,
                     )
                 )
@@ -775,19 +856,32 @@ def render_inventory(result: Inventory) -> str:
     for item in result.skipped:
         lines.append(f"  {item.path}: {item.reason}")
 
-    lines.extend(
-        [
-            "",
-            f"=== SUSPICIOUS-PATTERN SCAN: {len(result.findings)} hit(s) ===",
-            "Leads for in-context review, not proof of safety.",
-        ]
-    )
-    for item in result.findings:
+    behavior_findings = [item for item in result.findings if item.strength == "behavior"]
+    context_findings = [item for item in result.findings if item.strength == "context"]
+    lines.extend(["", f"=== BEHAVIOR-LIKE FINDINGS: {len(behavior_findings)} ==="])
+    for item in behavior_findings:
         lines.append(
-            f"  [{item.category}] {item.path}:{item.line}: {item.snippet}"
+            f"  [{item.category}; {item.source_kind}] {item.path}:{item.line}: {item.snippet}"
         )
-    if not result.findings:
-        lines.append("No suspicious behavior found in the inspected text files.")
+    if not behavior_findings:
+        lines.append("No behavior-like findings found in the files inspected.")
+    lines.append(
+        "Static review is evidence, not proof of safety; inspect skipped paths and findings in context."
+    )
+
+    lines.extend(["", f"=== CONTEXT-ONLY MENTIONS: {len(context_findings)} ==="])
+    by_category: Dict[str, List[Finding]] = {}
+    for item in context_findings:
+        by_category.setdefault(item.category, []).append(item)
+    for category in sorted(by_category):
+        items = by_category[category]
+        lines.append(f"  [{category}] {len(items)} mention(s)")
+        for item in items[:5]:
+            lines.append(f"    {item.path}:{item.line}: {item.snippet}")
+        if len(items) > 5:
+            lines.append(f"    ... and {len(items) - 5} more")
+    if not context_findings:
+        lines.append("No contextual safety mentions found.")
     return "\n".join(lines) + "\n"
 
 
