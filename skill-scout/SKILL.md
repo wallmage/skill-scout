@@ -1,6 +1,6 @@
 ---
 name: skill-scout
-description: "Use when evaluating, comparing, or preparing to install an agent skill, plugin, prompt pack, repository, or pasted install command; especially when the user asks whether it is safe, worthwhile, compatible, how it works, or which components to keep."
+description: "Use when a user shares a skill or plugin repository URL, asks “is this worth installing?” or “thoughts?”, requests a comparison, pastes `curl ... | sh`, says “install this”, or uses `/plugin install`. Always run Skill Scout before every skill or plugin installation."
 ---
 
 # Skill Scout
