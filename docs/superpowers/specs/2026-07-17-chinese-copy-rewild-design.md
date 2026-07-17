@@ -7,7 +7,7 @@ Rewrite the Chinese copy in `README.md` and `docs/index.html` so it reads like o
 ## Scope
 
 - Rewrite only the Chinese README section and Chinese landing-page strings.
-- Keep all English prose unchanged.
+- Keep all English prose unchanged, except the two public N−1 sentences in `README.md` and `docs/index.html`, which may be minimally revised to state `When a subagent is needed`.
 - Keep links, commands, code, paths, product names, verdict icons, model examples, repository names, and measured numbers unchanged.
 - Do not change skill behavior, installation instructions, or technical claims.
 
@@ -34,6 +34,7 @@ Core terms stay consistent across both surfaces:
 - 🟢 `值得安装`, 🟡 `只挑精华`, and 🔴 `别装`
 - `删除测试` and `含金量测试`
 - `N−1` as a dynamic one-tier reduction, with model names explicitly treated as examples
+- `整个仓库`, `hooks`, `commands`, and `agents`, so the review scope stays explicit
 - static review limits and the promise never to execute target code during inspection
 
 ## Fact boundaries
@@ -43,5 +44,5 @@ Both surfaces must retain the existing example and benchmark facts: `50+`, `2.1 
 ## Verification
 
 - Add public-copy tests that extract the two Chinese surfaces, check protected facts and core terms, and reject common AI-writing phrases or half-width punctuation in Chinese prose outside code and URLs.
-- Inspect the final diff to confirm English prose, links, commands, numbers, and product names did not change.
+- Inspect the final diff to confirm English prose apart from those two N−1 sentences, plus links, commands, numbers, and product names, did not change.
 - Run the full unit test suite and validate the HTML structure before committing.

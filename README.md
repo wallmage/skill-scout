@@ -47,7 +47,7 @@ Stars, followers, and README claims never prove implementation quality. Source f
 
 - **Replies in your language.** Ask in Japanese, get the verdict in Japanese. 中文提问，中文回答.
 - **Runs anywhere.** Plain markdown + one stdlib-only Python script. Claude Code, Codex, Kimi Code, OpenCode, Gemini CLI — see [INSTALL.md](INSTALL.md).
-- **Cheap by design.** The N−1 rule selects exactly one tier below the main model from models the current harness actually exposes. Fable→Opus, Opus→Sonnet, GPT-5.6 flagship→Terra, and Terra→Luna are illustrative tier examples, never names to invent when unavailable.
+- **Cheap by design.** When a subagent is needed, the N−1 rule selects exactly one tier below the main model from models the current harness actually exposes. Fable→Opus, Opus→Sonnet, GPT-5.6 flagship→Terra, and Terra→Luna are illustrative tier examples, never names to invent when unavailable.
 - **Never runs the code it judges.** The repo is treated as untrusted data. Symlinks are refused, reads are bounded, skipped files are disclosed, and the main model reviews every security-sensitive finding.
 
 ### Install
@@ -102,14 +102,14 @@ The baseline failed exactly where a busy person gets hurt: hedged non-verdicts (
 
 ### skill-scout 会给你什么
 
-贴上链接，它会检查仓库里的 SKILL.md、脚本和文档。看不了的内容会单独列出来。报告里有这些：
+贴上链接，它会把整个仓库都过一遍：SKILL.md、脚本、文档，还有 hooks、commands 和 agents。能检查的都会看；无法检查或被跳过的内容，比如二进制文件和过大的文件，也会单独列出来。报告里有这些：
 
 1. **开头直接给结论。** 🟢 值得安装、🟡 只挑精华，或 🔴 别装，再用一句话说明理由。
-2. **它实际怎么工作。** 什么会触发它，状态放在哪里，闭环怎么完成。看的是实现，不是 README 的宣传词。
+2. **它实际怎么工作。** 什么会触发它，状态存在哪，整条流程怎么收尾。看的是实现，不是 README 的宣传词。
 3. **真正有用的 20%。** 一个包塞了 50 个技能，报告会区分哪些在干活，哪些只是同一模板替换名词。
 4. **十分钟阅读路线。** 按顺序列出 2–4 个真实文件路径，并说清每个该看什么。看完这些，剩下的由报告补齐。
-5. **说清边界的安全审查。** 它会区分可能有执行行为的代码和普通文字提及，列出文件、行号与跳过项。静态检查无法证明绝对安全，这点也会写明。
-6. **安装条件。** 平台与运行环境、依赖、许可证、全局写入、提权、hooks 和持久化行为都会过一遍。
+5. **说清边界的安全审查。** 它会区分可能触发实际操作的代码和普通文字提及，列出文件、行号与跳过项。静态检查无法证明绝对安全，这点也会写明。
+6. **安装条件。** 平台与运行环境、依赖、许可证、全局写入、提权，以及 hooks、commands、agents 和持久化行为都会过一遍。
 7. **值得借鉴的做法。** 作者哪里做对了，方便你以后写自己的技能。
 
 ### 安装前，先让它把关
@@ -152,7 +152,7 @@ mkdir -p ~/.agents/skills
 cp -R skill-scout/skill-scout ~/.agents/skills/skill-scout
 ```
 
-**Gemini CLI 及其他支持 Agent Skills 的工具** → 见 [INSTALL.md](INSTALL.md)，按各自原生的个人或项目 skill 路径安装。
+**Gemini CLI 及其他支持 Agent Skills 的工具** → 见 [INSTALL.md](INSTALL.md)，装到各工具自己的个人或项目 skill 目录即可。
 
 ### 可以这样问
 
@@ -177,7 +177,7 @@ cp -R skill-scout/skill-scout ~/.agents/skills/skill-scout
 |---|---|---|
 | 通过的检验项 | **100%**（14/14） | 64%（9/14） |
 
-没装的那组，偏偏在最关键的地方失手：只会含糊地说“大概值得吧，如果……”，也没做安全检查。它漏掉了一个真实的遥测请求。装了技能的那组找到了。
+没装技能的那组，偏偏在最关键的地方失手：只会含糊地说“大概值得吧，如果……”，也没做安全检查，还漏掉了一个真实的遥测请求。装上技能的那组把这个请求找出来了。
 
 ---
 

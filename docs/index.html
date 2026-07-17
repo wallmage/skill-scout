@@ -91,8 +91,8 @@
   <h1 class="logo">🔍 skill-<span>scout</span></h1>
   <p class="tagline" data-lang="en">Your CTO for AI skills.</p>
   <p class="sub" data-lang="en">Paste a link. It accounts for every path, inspects the reviewable source, reports anything it cannot inspect, then tells you straight: install it, take only the good parts, or stay away.</p>
-  <p class="tagline" data-lang="zh">AI 技能，装前先查清。</p>
-  <p class="sub" data-lang="zh">贴上仓库链接。它会逐项核对文件，把能看的源码看一遍，再把看不了的部分单独列出，然后直接说：值得安装、只挑精华，还是别装。</p>
+  <p class="tagline" data-lang="zh">装 AI 技能前，先把它查清楚。</p>
+  <p class="sub" data-lang="zh">贴上仓库链接。它会把整个仓库逐项查一遍；无法检查的部分会单独列出，然后直接说：值得安装、只挑精华，还是别装。</p>
 
   <div class="langbar">
     <button id="btn-en" aria-pressed="true">English</button>
@@ -140,7 +140,7 @@
 
 <h2>Why it's affordable</h2>
 <div class="card">
-  <p style="margin:0"><b>The N−1 rule.</b> The skill selects exactly one tier below the main model from models the current harness actually exposes. Fable→Opus, Opus→Sonnet, GPT-5.6 flagship→Terra, and Terra→Luna are illustrative tier examples, never names to invent when unavailable.</p>
+  <p style="margin:0"><b>The N−1 rule.</b> When a subagent is needed, it selects exactly one tier below the main model from models the current harness actually exposes. Fable→Opus, Opus→Sonnet, GPT-5.6 flagship→Terra, and Terra→Luna are illustrative tier examples, never names to invent when unavailable.</p>
 </div>
 <p>It also <b>never runs the code it judges</b>. The repo is treated as untrusted data throughout — it dissects the pill, it doesn't swallow it. Instructions hidden inside a repo aimed at the reviewing AI are reported as a red flag, never obeyed.</p>
 
@@ -194,13 +194,13 @@ Install this for me: https://github.com/someone/viral-skill   ← gets vetted fi
   <li><b>它到底怎么跑</b>：什么触发、状态放哪、怎样收尾。看实现，不听 README 自夸。</li>
   <li><b>真正有用的 20%</b>：50 个技能的大包里，哪几个真在干活，哪些只是模板换名词。</li>
   <li><b>10 分钟阅读路线</b>：按顺序列出 2–4 个真实文件路径，并说清该看什么。报告会交代其余内容和无法检查的部分。</li>
-  <li><b>说清边界的安全审查</b>：区分可能有执行行为的代码和普通文字，列出文件、行号、跳过项与检查边界。静态检查不能证明绝对安全。</li>
-  <li><b>能不能装</b>：平台兼容性、依赖、许可证、全局写入、提权、hooks 和持久化行为都会查。</li>
+  <li><b>说清边界的安全审查</b>：区分可能触发实际操作的代码和普通文字提及，列出文件、行号、跳过项与检查边界。静态检查不能证明绝对安全。</li>
+  <li><b>能不能装</b>：平台兼容性、依赖、许可证、全局写入、提权，以及 hooks、commands、agents 和持久化行为都会查。</li>
   <li><b>可借鉴的做法</b>：作者哪里做对了，方便你以后写自己的技能。</li>
 </ol>
 
 <div class="verdicts">
-  <div class="v g"><b>🟢 值得安装</b><span>每个部分都派得上用场，整个包都值得装。</span></div>
+  <div class="v g"><b>🟢 值得安装</b><span>整个包都有用，报告也会告诉你先从哪里看。</span></div>
   <div class="v a"><b>🟡 只挑精华</b><span>臃肿的包里有真货。只拿这三个，其余跳过。</span></div>
   <div class="v r"><b>🔴 别装</b><span>空洞、造假或不安全。会附上证据和替代方案。</span></div>
 </div>
@@ -225,14 +225,14 @@ Install this for me: https://github.com/someone/viral-skill   ← gets vetted fi
 <p>它还<b>不运行正在审查的代码</b>。仓库全程当作不可信数据：只看配料，不吞下去。藏在仓库里、写给“审查 AI”的指令会被标成危险信号，不会照做。</p>
 
 <h2>实测，不靠自夸</h2>
-<p>拿同一个模型做对照：一边装上该技能，一边不装。测试用的是真实仓库（<code>obra/superpowers</code>、<code>anthropics/skills</code>）。</p>
+<p>同一个模型做两组对照：一组装上该技能，一组<em>没装</em>。测试用的是真实仓库（<code>obra/superpowers</code>、<code>anthropics/skills</code>）。</p>
 <div class="tablewrap">
 <table>
   <tr><th></th><th>装了 skill-scout</th><th>没装</th></tr>
   <tr><td>通过的检验项</td><td><b>100%</b>（14/14）</td><td>64%（9/14）</td></tr>
 </table>
 </div>
-<p>没装的那组，偏偏在最要紧的地方失手：只会含糊地说“大概值得吧，如果……”，也没做安全检查。它漏掉了一个真实的遥测请求。装了技能的那组则找到了。</p>
+<p>没装技能的那组，偏偏在最要紧的地方失手：只会含糊地说“大概值得吧，如果……”，也没做安全检查，还漏掉了一个真实的遥测请求。装上技能的那组把这个请求找出来了。</p>
 
 <h2>安装</h2>
 <p><b>Claude Code / Claude 桌面版</b></p>
@@ -242,7 +242,7 @@ cp -r skill-scout/skill-scout ~/.claude/skills/skill-scout</code></pre>
 <p><b>OpenAI Codex</b></p>
 <pre><code>mkdir -p ~/.agents/skills
 cp -R skill-scout/skill-scout ~/.agents/skills/skill-scout</code></pre>
-<p><b>Gemini CLI 及其他支持 Agent Skills 的工具</b>：见 <code>INSTALL.md</code>，按各自原生的个人或项目 skill 路径安装。</p>
+<p><b>Gemini CLI 及其他支持 Agent Skills 的工具</b>：见 <code>INSTALL.md</code>，装到各工具自己的个人或项目 skill 目录即可。</p>
 
 <h2>直接这样问</h2>
 <pre><code>这个值得装吗? https://github.com/someone/some-skill-pack
