@@ -25,6 +25,7 @@ except ImportError:  # Python 3.9 and 3.10
 
 
 DEFAULT_MAX_FILE_BYTES = 2 * 1024 * 1024
+REPARSE_POINT_ATTRIBUTE = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x0400)
 SECURE_RELATIVE_OPEN_SUPPORTED = (
     hasattr(os, "O_NOFOLLOW")
     and hasattr(os, "O_DIRECTORY")
@@ -117,9 +118,21 @@ class DependencyRecord:
     path: str
 
 
+@dataclass(frozen=True)
+class _ComponentSnapshot:
+    """Identity fields used to detect fallback-path changes before reading."""
+
+    path: Path
+    device: int
+    inode: int
+    file_type: int
+    file_attributes: int
+
+
 @dataclass
 class Inventory:
     root: str
+    read_mode: str = "strict"
     scanned_files: List[FileRecord] = field(default_factory=list)
     skills: List[FileRecord] = field(default_factory=list)
     scripts: List[FileRecord] = field(default_factory=list)
@@ -276,6 +289,23 @@ def _append_unique(collection: List[Any], item: Any) -> None:
         collection.append(item)
 
 
+def _is_link_like(metadata: os.stat_result) -> bool:
+    """Return whether metadata represents a link or Windows reparse point."""
+    return stat.S_ISLNK(metadata.st_mode) or bool(
+        getattr(metadata, "st_file_attributes", 0) & REPARSE_POINT_ATTRIBUTE
+    )
+
+
+def _link_like_reason(metadata: os.stat_result) -> str:
+    if stat.S_ISLNK(metadata.st_mode):
+        return "symbolic link"
+    return "Windows reparse point"
+
+
+def _path_evidence_detail(detail: str, inspection: str) -> str:
+    return f"{detail}; {inspection}" if detail else inspection
+
+
 def _manifest_category(rel: str) -> Optional[str]:
     lower = rel.lower()
     filename = Path(rel).name.lower()
@@ -307,42 +337,70 @@ def _manifest_category(rel: str) -> Optional[str]:
     return None
 
 
-def _collect_path_evidence(result: Inventory, rel: str) -> None:
+def _collect_path_evidence(result: Inventory, rel: str, inspection: str) -> None:
     path = Path(rel)
     lower_parts = [part.lower() for part in path.parts]
     for integration in sorted(INTEGRATION_DIRS.intersection(lower_parts)):
         _append_unique(
             result.integration_paths,
-            EvidenceRecord(integration, rel, f"file under {integration}/"),
+            EvidenceRecord(
+                integration,
+                rel,
+                _path_evidence_detail(f"file under {integration}/", inspection),
+            ),
         )
 
     manifest = _manifest_category(rel)
     if manifest:
-        _append_unique(result.manifests, EvidenceRecord(manifest, rel, "detected"))
+        _append_unique(
+            result.manifests,
+            EvidenceRecord(manifest, rel, _path_evidence_detail("detected", inspection)),
+        )
 
     if path.name.lower().startswith(LICENSE_PREFIXES):
-        _append_unique(result.licenses, EvidenceRecord("file", rel, "license file"))
+        _append_unique(
+            result.licenses,
+            EvidenceRecord(
+                "file", rel, _path_evidence_detail("license file", inspection)
+            ),
+        )
 
     filename = path.name.lower()
     if "agents" in lower_parts and filename == "openai.yaml":
         _append_unique(
             result.compatibility,
-            EvidenceRecord("platform", rel, "OpenAI Codex metadata"),
+            EvidenceRecord(
+                "platform",
+                rel,
+                _path_evidence_detail("OpenAI Codex metadata", inspection),
+            ),
         )
     if ".codex-plugin" in lower_parts:
         _append_unique(
             result.compatibility,
-            EvidenceRecord("platform", rel, "OpenAI Codex plugin"),
+            EvidenceRecord(
+                "platform",
+                rel,
+                _path_evidence_detail("OpenAI Codex plugin", inspection),
+            ),
         )
     if ".claude" in lower_parts or ".claude-plugin" in lower_parts or filename == "claude.md":
         _append_unique(
             result.compatibility,
-            EvidenceRecord("platform", rel, "Claude configuration"),
+            EvidenceRecord(
+                "platform",
+                rel,
+                _path_evidence_detail("Claude configuration", inspection),
+            ),
         )
     if filename == "gemini.md" or ".gemini" in lower_parts:
         _append_unique(
             result.compatibility,
-            EvidenceRecord("platform", rel, "Gemini instructions"),
+            EvidenceRecord(
+                "platform",
+                rel,
+                _path_evidence_detail("Gemini instructions", inspection),
+            ),
         )
 
 
@@ -641,6 +699,7 @@ def _open_relative_file(root_fd: int, relative_path: Path) -> int:
             directory_fd = next_fd
 
         file_flags = os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
+        file_flags |= getattr(os, "O_NONBLOCK", 0)
         return os.open(parts[-1], file_flags, dir_fd=directory_fd)
     finally:
         os.close(directory_fd)
@@ -674,28 +733,140 @@ def _safe_read(
     root_fd: Optional[int],
     max_file_bytes: int,
 ) -> Tuple[Optional[str], Optional[str]]:
-    if not SECURE_RELATIVE_OPEN_SUPPORTED or root_fd is None:
-        return None, "secure no-follow reads unsupported on this platform"
+    if SECURE_RELATIVE_OPEN_SUPPORTED and root_fd is not None:
+        return _safe_read_strict(path, root, root_fd, max_file_bytes)
+    return _safe_read_fallback(path, root, max_file_bytes)
 
+
+def _safe_read_strict(
+    path: Path,
+    root: Path,
+    root_fd: int,
+    max_file_bytes: int,
+) -> Tuple[Optional[str], Optional[str]]:
     try:
         relative_path = path.relative_to(root)
         descriptor = _open_relative_file(root_fd, relative_path)
     except (OSError, ValueError) as exc:
         return None, f"cannot read securely: {getattr(exc, 'strerror', None) or exc}"
 
-    with os.fdopen(descriptor, "rb") as handle:
-        metadata = os.fstat(handle.fileno())
+    try:
+        return _read_bounded_descriptor(descriptor, max_file_bytes)
+    finally:
+        os.close(descriptor)
+
+
+def _snapshot_from_metadata(path: Path, metadata: os.stat_result) -> _ComponentSnapshot:
+    return _ComponentSnapshot(
+        path=path,
+        device=metadata.st_dev,
+        inode=metadata.st_ino,
+        file_type=stat.S_IFMT(metadata.st_mode),
+        file_attributes=getattr(metadata, "st_file_attributes", 0),
+    )
+
+
+def _snapshot_components(path: Path, root: Path) -> List[_ComponentSnapshot]:
+    """Snapshot root and every path component, refusing link-like objects."""
+    relative_path = path.relative_to(root)
+    parts = relative_path.parts
+    if not parts or any(part in {"", ".", ".."} for part in parts):
+        raise ValueError("invalid repository-relative path")
+
+    snapshots = []
+    current = root
+    for component in (None, *parts):
+        if component is not None:
+            current = current / component
+        metadata = current.lstat()
+        if _is_link_like(metadata):
+            raise ValueError(_link_like_reason(metadata))
+        snapshots.append(_snapshot_from_metadata(current, metadata))
+    return snapshots
+
+
+def _snapshots_match(
+    snapshots: List[_ComponentSnapshot], path: Path, root: Path
+) -> bool:
+    try:
+        return _snapshot_components(path, root) == snapshots
+    except (OSError, ValueError):
+        return False
+
+
+def _safe_read_fallback(
+    path: Path,
+    root: Path,
+    max_file_bytes: int,
+) -> Tuple[Optional[str], Optional[str]]:
+    """Guard an absolute-path open where descriptor-relative traversal is absent."""
+    try:
+        snapshots = _snapshot_components(path, root)
+    except (OSError, ValueError) as exc:
+        return None, f"cannot read securely: {getattr(exc, 'strerror', None) or exc}"
+
+    if not stat.S_ISREG(snapshots[-1].file_type):
+        return None, "not a regular file"
+
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+    flags |= getattr(os, "O_CLOEXEC", 0)
+    flags |= getattr(os, "O_BINARY", 0)
+    flags |= getattr(os, "O_NONBLOCK", 0)
+    try:
+        descriptor = os.open(path, flags)
+    except OSError as exc:
+        return None, f"cannot read securely: {exc.strerror or exc}"
+
+    try:
+        opened_metadata = os.fstat(descriptor)
+        if _is_link_like(opened_metadata):
+            return None, _link_like_reason(opened_metadata)
+        if not stat.S_ISREG(opened_metadata.st_mode):
+            return None, "not a regular file"
+        if _snapshot_from_metadata(path, opened_metadata) != snapshots[-1]:
+            return None, "path changed while it was being opened"
+        if not _snapshots_match(snapshots, path, root):
+            return None, "path changed while it was being opened"
+        return _read_bounded_descriptor(descriptor, max_file_bytes)
+    except OSError as exc:
+        return None, f"cannot read securely: {exc.strerror or exc}"
+    finally:
+        os.close(descriptor)
+
+
+def _read_bounded_descriptor(
+    descriptor: int, max_file_bytes: int
+) -> Tuple[Optional[str], Optional[str]]:
+    """Read an already-open regular file without exceeding the configured cap."""
+    try:
+        metadata = os.fstat(descriptor)
+        if _is_link_like(metadata):
+            return None, _link_like_reason(metadata)
         if not stat.S_ISREG(metadata.st_mode):
             return None, "not a regular file"
         if metadata.st_size > max_file_bytes:
             return None, f"exceeds {max_file_bytes}-byte read limit"
-        payload = handle.read(max_file_bytes + 1)
+
+        payload_parts = []
+        remaining = max_file_bytes + 1
+        while remaining:
+            chunk = os.read(descriptor, remaining)
+            if not chunk:
+                break
+            payload_parts.append(chunk)
+            remaining -= len(chunk)
+    except OSError as exc:
+        return None, f"cannot read securely: {exc.strerror or exc}"
+    payload = b"".join(payload_parts)
 
     if len(payload) > max_file_bytes:
         return None, f"exceeds {max_file_bytes}-byte read limit"
     if b"\x00" in payload:
         return None, "binary file"
-    return payload.decode("utf-8", errors="replace"), None
+    try:
+        return payload.decode("utf-8"), None
+    except UnicodeDecodeError:
+        return None, "undecodable UTF-8 text"
 
 
 def _scan_findings(record: FileRecord, text: str) -> List[Finding]:
@@ -742,8 +913,10 @@ def scan_repository(root: Path, max_file_bytes: int = DEFAULT_MAX_FILE_BYTES) ->
         requested_metadata = requested_root.lstat()
     except OSError as exc:
         raise ValueError(f"cannot inspect repository root: {exc}") from exc
-    if stat.S_ISLNK(requested_metadata.st_mode):
-        raise ValueError("repository root must not be a symbolic link")
+    if _is_link_like(requested_metadata):
+        raise ValueError(
+            f"repository root must not be a {_link_like_reason(requested_metadata)}"
+        )
     if not stat.S_ISDIR(requested_metadata.st_mode):
         raise ValueError(f"not a directory: {root}")
 
@@ -754,7 +927,7 @@ def scan_repository(root: Path, max_file_bytes: int = DEFAULT_MAX_FILE_BYTES) ->
             root_fd = _open_absolute_directory(root_path)
             opened = os.fstat(root_fd)
             requested_after_open = requested_root.lstat()
-            if stat.S_ISLNK(requested_after_open.st_mode) or (
+            if _is_link_like(requested_after_open) or (
                 opened.st_dev,
                 opened.st_ino,
             ) != (
@@ -767,7 +940,8 @@ def scan_repository(root: Path, max_file_bytes: int = DEFAULT_MAX_FILE_BYTES) ->
             os.close(root_fd)
         raise
 
-    result = Inventory(root=str(root_path))
+    read_mode = "strict" if SECURE_RELATIVE_OPEN_SUPPORTED else "fallback"
+    result = Inventory(root=str(root_path), read_mode=read_mode)
 
     def record_walk_error(exc: OSError) -> None:
         error_path = Path(exc.filename) if exc.filename else root_path
@@ -791,12 +965,21 @@ def scan_repository(root: Path, max_file_bytes: int = DEFAULT_MAX_FILE_BYTES) ->
             for dirname in sorted(dirnames):
                 child = current / dirname
                 rel = _relative(child, root_path)
-                if child.is_symlink():
+                try:
+                    child_metadata = child.lstat()
+                except OSError as exc:
+                    result.skipped.append(
+                        SkippedRecord(rel, f"cannot stat: {exc.strerror or exc}")
+                    )
+                    continue
+                if _is_link_like(child_metadata):
                     try:
                         target = os.readlink(child)
                     except OSError:
                         target = None
-                    result.skipped.append(SkippedRecord(rel, "symbolic link", target))
+                    result.skipped.append(
+                        SkippedRecord(rel, _link_like_reason(child_metadata), target)
+                    )
                 elif dirname in SKIP_DIRS:
                     result.skipped.append(SkippedRecord(rel, "excluded directory"))
                 else:
@@ -806,10 +989,12 @@ def scan_repository(root: Path, max_file_bytes: int = DEFAULT_MAX_FILE_BYTES) ->
             for filename in sorted(filenames):
                 path = current / filename
                 rel = _relative(path, root_path)
-                _collect_path_evidence(result, rel)
                 try:
                     metadata = path.lstat()
                 except OSError as exc:
+                    _collect_path_evidence(
+                        result, rel, "path only; content not read"
+                    )
                     result.skipped.append(
                         SkippedRecord(rel, f"cannot stat: {exc.strerror or exc}")
                     )
@@ -817,22 +1002,43 @@ def scan_repository(root: Path, max_file_bytes: int = DEFAULT_MAX_FILE_BYTES) ->
 
                 executable = bool(metadata.st_mode & 0o111) and stat.S_ISREG(metadata.st_mode)
                 ext = path.suffix.lower()
-                if stat.S_ISLNK(metadata.st_mode):
+                if _is_link_like(metadata):
                     try:
                         target = os.readlink(path)
                     except OSError:
                         target = None
-                    result.skipped.append(SkippedRecord(rel, "symbolic link", target))
+                    _collect_path_evidence(
+                        result, rel, "path only; content not read"
+                    )
+                    result.skipped.append(
+                        SkippedRecord(rel, _link_like_reason(metadata), target)
+                    )
+                    continue
+                if not stat.S_ISREG(metadata.st_mode):
+                    _collect_path_evidence(
+                        result, rel, "path only; content not read"
+                    )
+                    result.skipped.append(SkippedRecord(rel, "not a regular file"))
                     continue
                 text, reason = _safe_read(path, root_path, root_fd, max_file_bytes)
-                if executable:
-                    result.executables.append(
-                        FileRecord(rel, 0, metadata.st_size, "executable", executable=True)
-                    )
                 if reason:
+                    _collect_path_evidence(
+                        result, rel, "path only; content not read"
+                    )
+                    if executable:
+                        result.executables.append(
+                            FileRecord(
+                                rel,
+                                0,
+                                metadata.st_size,
+                                "executable",
+                                executable=True,
+                            )
+                        )
                     result.skipped.append(SkippedRecord(rel, reason))
                     continue
                 assert text is not None
+                _collect_path_evidence(result, rel, "inspected")
 
                 is_skill = filename.lower() == "skill.md"
                 is_document = is_skill or ext in DOC_EXTS
@@ -869,6 +1075,8 @@ def scan_repository(root: Path, max_file_bytes: int = DEFAULT_MAX_FILE_BYTES) ->
                     description=description,
                 )
                 result.scanned_files.append(record)
+                if executable:
+                    result.executables.append(record)
                 if is_skill:
                     result.skills.append(record)
                 if is_document:
@@ -928,7 +1136,15 @@ def _safe_display(value: Any) -> str:
 
 def render_inventory(result: Inventory) -> str:
     """Render the inventory as concise, human-readable text."""
-    lines = [f"=== INVENTORY: {_safe_display(Path(result.root).name)} ===", ""]
+    lines = [
+        f"=== INVENTORY: {_safe_display(Path(result.root).name)} ===",
+        f"Read mode: {_safe_display(result.read_mode)}",
+    ]
+    if result.read_mode == "fallback":
+        lines.append(
+            "Fallback mode is guarded but weaker than strict descriptor-relative reads."
+        )
+    lines.append("")
     lines.append(f"Skills found: {len(result.skills)}")
     for item in result.skills:
         lines.append(f"  [{item.lines:>5} lines] {_safe_display(item.path)}")
@@ -953,11 +1169,17 @@ def render_inventory(result: Inventory) -> str:
 
     lines.extend(["", f"Integration surfaces: {len(result.integration_paths)}"])
     for item in result.integration_paths:
-        lines.append(f"  [{_safe_display(item.category)}] {_safe_display(item.path)}")
+        lines.append(
+            f"  [{_safe_display(item.category)}] {_safe_display(item.path)}: "
+            f"{_safe_display(item.detail)}"
+        )
 
     lines.extend(["", f"Manifests and lockfiles: {len(result.manifests)}"])
     for item in result.manifests:
-        lines.append(f"  [{_safe_display(item.category)}] {_safe_display(item.path)}")
+        lines.append(
+            f"  [{_safe_display(item.category)}] {_safe_display(item.path)}: "
+            f"{_safe_display(item.detail)}"
+        )
 
     lines.extend(["", f"Declared dependencies: {len(result.dependencies)}"])
     for item in result.dependencies:
