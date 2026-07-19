@@ -1,3 +1,10 @@
 .DS_Store
 __pycache__/
 *.pyc
+
+# Internal process records — plans, specs, optimizer runs, eval fixtures.
+# Kept locally, never published.
+planning/
+
+# Scratch task prompts written for coding agents.
+gpt-fix-prompt*.md
