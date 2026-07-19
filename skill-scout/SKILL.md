@@ -60,11 +60,11 @@ Maintain an audit coverage ledger with one row per relevant path: path, type, in
 5. Review every skipped symlink, binary, oversized file, archive, and submodule entry. If a skipped item could execute or affect installation, incomplete coverage blocks an INSTALL verdict.
 6. Inspect commit history, releases, and open issues when the host exposes them. If maintenance evidence is unavailable, say so instead of guessing.
 
-### Large repositories and N−1 subagents
+### Large repositories and parallel subagents
 
-For 10 or more skills, use parallel subagents when the harness supports them. Give each agent a non-overlapping file list and require: purpose, mechanism, references, substance score, compatibility/dependency notes, and suspicious evidence with file:line citations. Wait for every result; reassign missing work rather than dropping coverage. The main model re-reads all security-sensitive code, synthesizes the mechanism, and owns the verdict.
+For 10 or more skills, use parallel subagents actively when the harness supports them — the goal is to speed up the scan by splitting the reading work. Give each agent a non-overlapping file list and require: purpose, mechanism, references, substance score, compatibility/dependency notes, and suspicious evidence with file:line citations. Wait for every result; reassign missing work rather than dropping coverage. The main model re-reads all security-sensitive code, synthesizes the mechanism, and owns the verdict.
 
-**The N−1 rule is mandatory:** first discover the ordered model tiers among the models the current harness actually exposes, locate the main conversation model, and select the adjacent lower tier. **Illustrative examples only:** Claude Fable → Opus and Opus → Sonnet; Codex flagship GPT-5.6 → Terra and Terra → Luna. These names explain the relative step and are not a permanent model registry. Never infer ordering from model names. Never invent or assume an unavailable model name. If the next lower tier cannot be discovered or selected, do not spawn; read sequentially and disclose the limitation.
+Choose whatever model the harness makes available for subagents; using the same model as the main conversation is fine. If the harness cannot spawn subagents at all, read sequentially and disclose the limitation.
 
 ## 4. Judge the machine
 
@@ -99,4 +99,4 @@ For multiple repositories, audit each one, lead with a ranked verdict table, giv
 - **No Python:** reproduce every inventory section manually and list any coverage gap.
 - **Candidate scanner is untrusted:** use a previously trusted installed scanner or the manual inventory fallback.
 - **No hosting metadata:** mark history, issues, or release status as unverified.
-- **No selectable lower-tier model:** apply the N−1 fallback above and read sequentially.
+- **No subagent support:** read sequentially and disclose the limitation.

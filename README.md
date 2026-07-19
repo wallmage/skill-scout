@@ -47,7 +47,7 @@ Stars, followers, and README claims never prove implementation quality. Source f
 
 - **Replies in your language.** Ask in Japanese, get the verdict in Japanese. 中文提问，中文回答.
 - **Runs anywhere.** Plain markdown + one stdlib-only Python script. Claude Code, Codex, Kimi Code, OpenCode, Gemini CLI — see [INSTALL.md](INSTALL.md).
-- **Cheap by design.** When a subagent is needed, the N−1 rule selects exactly one tier below the main model from models the current harness actually exposes. Fable→Opus, Opus→Sonnet, GPT-5.6 flagship→Terra, and Terra→Luna are illustrative tier examples, never names to invent when unavailable.
+- **Fast by design.** Large repos are split across parallel subagents to speed up the scan. Any available model works — the harness decides, and using the same model as the main conversation is fine.
 - **Never runs the code it judges.** The repo is treated as untrusted data. Symlinks are refused, reads are bounded, skipped files are disclosed, and the main model reviews every security-sensitive finding.
 
 ### Install
@@ -134,7 +134,7 @@ The baseline failed exactly where a busy person gets hurt: hedged non-verdicts (
 
 - **你用哪种语言问，它就用哪种语言答。** 日语提问，日语回答。中文提问，中文回答。
 - **纯 markdown 加一个只用标准库的 Python 脚本。** Claude Code、Codex、Kimi Code、OpenCode、Gemini CLI 都能用，见 [INSTALL.md](INSTALL.md)。
-- **子代理只低一档。** 需要派子代理时，N−1 才会启用：只从当前平台实际提供的模型中，选比主模型恰好低一档的型号。Fable→Opus、Opus→Sonnet、GPT-5.6 旗舰版→Terra、Terra→Luna 都只是层级示例。平台没有的型号不会凭空使用。
+- **并行子代理提速。** 大仓库会拆分给多个并行子代理同时扫描，加快审读速度。子代理用什么模型由平台自行决定，与主模型相同也完全可以。
 - **不运行正在审查的代码。** 仓库一律当作不可信数据处理：不跟随符号链接、限制读取大小、公开所有跳过项，安全相关发现交给主模型复核。
 
 ### 安装方式

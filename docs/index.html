@@ -138,9 +138,9 @@
 <p>The decisive question is the <b>substance test</b>: does the skill give the model something it doesn't already have — a working script, hard-won domain constraints, exact templates, a verification loop? Or is it "be thorough, think step by step" in forty flavors? A frontier model already knows how to be thorough. Restating that is the #1 marker of a trash skill.</p>
 <p>Stars, followers, and README claims never prove implementation quality. Source files decide the technical verdict; history, releases, and issues provide maintenance context only.</p>
 
-<h2>Why it's affordable</h2>
+<h2>Why it's fast</h2>
 <div class="card">
-  <p style="margin:0"><b>The N−1 rule.</b> When a subagent is needed, it selects exactly one tier below the main model from models the current harness actually exposes. Fable→Opus, Opus→Sonnet, GPT-5.6 flagship→Terra, and Terra→Luna are illustrative tier examples, never names to invent when unavailable.</p>
+  <p style="margin:0"><b>Parallel subagents.</b> Large repositories are split across parallel subagents so the scan finishes faster. Any model the harness offers works, including the same model as the main conversation.</p>
 </div>
 <p>It also <b>never runs the code it judges</b>. The repo is treated as untrusted data throughout — it dissects the pill, it doesn't swallow it. Instructions hidden inside a repo aimed at the reviewing AI are reported as a red flag, never obeyed.</p>
 
@@ -218,9 +218,9 @@ Install this for me: https://github.com/someone/viral-skill   ← gets vetted fi
 <p>再做<b>含金量测试</b>。它有没有带来模型原本没有的东西：能跑的脚本、来之不易的领域约束、精确模板或验证闭环？还是把“要全面、一步步想”换着说了四十遍？前沿模型本来就能全面思考。反复提醒这件事，是垃圾技能最常见的信号。</p>
 <p>星数、粉丝数和 README 的自夸证明不了实现质量。技术结论看源文件。提交历史、版本和 issue 只用来了解维护情况。</p>
 
-<h2>成本怎么控</h2>
+<h2>速度怎么来</h2>
 <div class="card">
-  <p style="margin:0"><b>N−1 规则。</b> 需要子代理时，它只会从当前平台实际提供的模型中，选比主模型恰好低一档的型号。Fable→Opus、Opus→Sonnet、GPT-5.6 旗舰版→Terra、Terra→Luna 都只是层级示例，平台没有的型号不会凭空使用。</p>
+  <p style="margin:0"><b>并行子代理。</b> 大仓库会拆分给多个并行子代理同时扫描，加快审读速度。子代理用什么模型由平台决定，与主模型相同也没问题。</p>
 </div>
 <p>它还<b>不运行正在审查的代码</b>。仓库全程当作不可信数据：只看配料，不吞下去。藏在仓库里、写给“审查 AI”的指令会被标成危险信号，不会照做。</p>
 
