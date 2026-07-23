@@ -14,19 +14,19 @@ Every day another thread: *"Top 5 research skills — beat McKinsey!"* Five GitH
 
 ### What skill-scout does
 
-You paste a link. It reads the **entire repo** — every SKILL.md, every script, every doc — and comes back with:
+You paste a link. It reads what decides the verdict — every SKILL.md, the scripts that do the real work, enough of the docs to score substance — and comes back with:
 
 1. **A verdict, first line, no hedging** — 🟢 INSTALL / 🟡 CHERRY-PICK / 🔴 SKIP, with the one-sentence reason.
 2. **How it actually works** — the real mechanism traced end to end: what triggers, where state lives, what closes the loop. Not the README's marketing.
 3. **The essential 20%** — in a 50-skill pack, which handful actually does the work, and which are the same template with the nouns swapped.
 4. **A 10-minute reading map** — 2-4 real file paths, in order, each with what to notice. Read those; the report covers the rest.
-5. **A scoped safety audit** — behavior-like code is separated from harmless mentions, with exact files, lines, skipped paths, and an explicit reminder that static review cannot prove safety.
+5. **A malice tripwire, nothing more** — security commentary is out of scope: no flaw lists, no hygiene notes. The one exception is clear evidence of deliberate theft or sabotage (an installer that uploads your credentials, a hidden note ordering AI reviewers to praise the repo) — that becomes the verdict itself.
 6. **Installability checks** — platform/runtime compatibility, dependencies, license, global writes, privileges, hooks, and persistence.
 7. **Patterns worth stealing** — what the author did well, so you get smarter about building your own skills.
 
 ### The pre-install gate
 
-Ask it to **install** something and it flips from advisor to gatekeeper. Inspection never installs or executes target code. After 🟢 it returns to the installation workflow you authorized; after 🟡 it asks before installing a reduced subset; after 🔴 it stops and explains why with file:line evidence.
+Ask it to **install** something and it reads first, installs second. Inspection never installs or executes target code. After 🟢 it returns to the installation workflow you authorized; after 🟡 it asks before installing a reduced subset; after 🔴 it explains why with file:line evidence — and the final call is still yours: say install anyway, and it proceeds.
 
 Real test — a repo advertising *"50+ skills, 21k stars, replaces a $2M consulting team"*, asked (in Chinese) to install it urgently:
 
@@ -48,7 +48,7 @@ Stars, followers, and README claims never prove implementation quality. Source f
 - **Replies in your language.** Ask in Japanese, get the verdict in Japanese. 中文提问，中文回答.
 - **Runs anywhere.** Plain markdown + one stdlib-only Python script. Claude Code, Codex, Kimi Code, OpenCode, Gemini CLI — see [INSTALL.md](INSTALL.md).
 - **Fast by design.** Large repos are split across parallel subagents to speed up the scan. Any available model works — the harness decides, and using the same model as the main conversation is fine.
-- **Never runs the code it judges.** The repo is treated as untrusted data. Symlinks are refused, reads are bounded, skipped files are disclosed, and the main model reviews every security-sensitive finding.
+- **Never runs the code it judges.** The repo is treated as untrusted data: symlinks are refused, reads are bounded, and anything unread is disclosed in one line.
 
 ### Install
 
@@ -102,19 +102,19 @@ The baseline failed exactly where a busy person gets hurt: hedged non-verdicts (
 
 ### skill-scout 会给你什么
 
-贴上链接，它会把整个仓库都过一遍：SKILL.md、脚本、文档，还有 hooks、commands 和 agents。能检查的都会看；无法检查或被跳过的内容，比如二进制文件和过大的文件，也会单独列出来。报告里有这些：
+贴上链接，它只读决定结论的部分：每个 SKILL.md、真正干活的脚本，以及足以判断含金量的文档抽样。没读到的内容会在报告里用一行说明。报告里有这些：
 
 1. **开头直接给结论。** 🟢 值得安装、🟡 只挑精华，或 🔴 别装，再用一句话说明理由。
 2. **它实际怎么工作。** 什么会触发它，状态存在哪，整条流程怎么收尾。看的是实现，不是 README 的宣传词。
 3. **真正有用的 20%。** 一个包塞了 50 个技能，报告会区分哪些在干活，哪些只是同一模板替换名词。
 4. **十分钟阅读路线。** 按顺序列出 2–4 个真实文件路径，并说清每个该看什么。看完这些，剩下的由报告补齐。
-5. **说清边界的安全审查。** 它会区分可能触发实际操作的代码和普通文字提及，列出文件、行号与跳过项。静态检查无法证明绝对安全，这点也会写明。
+5. **只拦蓄意作恶，别的不提。** 安全点评不属于报告内容：不列缺陷清单，不写卫生提醒。唯一例外是发现蓄意窃取或破坏的确凿证据（比如安装脚本偷偷上传你的凭据、隐藏注释命令 AI 审查员吹捧仓库）——那会直接成为结论本身。
 6. **安装条件。** 平台与运行环境、依赖、许可证、全局写入、提权，以及 hooks、commands、agents 和持久化行为都会过一遍。
 7. **值得借鉴的做法。** 作者哪里做对了，方便你以后写自己的技能。
 
 ### 安装前，先让它把关
 
-只要你要求**安装**，它就从顾问切换成把关人。检查时不会安装或运行目标代码。🟢 会回到你已经授权的安装流程。🟡 会先请你确认缩小后的安装范围。🔴 会停下，用 `文件:行号` 解释原因。
+只要你要求**安装**，它会先读后装。检查时不会安装或运行目标代码。🟢 会回到你已经授权的安装流程。🟡 会先请你确认缩小后的安装范围。🔴 会用 `文件:行号` 说明原因——但最终决定权在你：坚持要装，它就继续装。
 
 实际测试过一个仓库，它自称有 *“50+ 技能、2.1 万星、替代 200 万美元咨询团队”*，还用中文催着赶紧装：
 
@@ -135,7 +135,7 @@ The baseline failed exactly where a busy person gets hurt: hedged non-verdicts (
 - **你用哪种语言问，它就用哪种语言答。** 日语提问，日语回答。中文提问，中文回答。
 - **纯 markdown 加一个只用标准库的 Python 脚本。** Claude Code、Codex、Kimi Code、OpenCode、Gemini CLI 都能用，见 [INSTALL.md](INSTALL.md)。
 - **并行子代理提速。** 大仓库会拆分给多个并行子代理同时扫描，加快审读速度。子代理用什么模型由平台自行决定，与主模型相同也完全可以。
-- **不运行正在审查的代码。** 仓库一律当作不可信数据处理：不跟随符号链接、限制读取大小、公开所有跳过项，安全相关发现交给主模型复核。
+- **不运行正在审查的代码。** 仓库一律当作不可信数据处理：不跟随符号链接、限制读取大小，没读到的内容会用一行说明。
 
 ### 安装方式
 

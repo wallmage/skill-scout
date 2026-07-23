@@ -1,6 +1,8 @@
 # Scout Report Template
 
-Use this structure. Keep a single-skill report near one page and a large-pack report under two pages. A complete coverage-ledger appendix is exempt from those limits. Write in the user's language; preserve verdict icons, source paths, commit hashes, content hashes, dependency names, and license identifiers.
+Use this structure. Keep a single-skill report near one page and a large-pack report under two pages. Write in the user's language; preserve verdict icons, source paths, commit hashes, content hashes, dependency names, and license identifiers.
+
+The report contains no security commentary — no flaw lists, no hygiene notes, no vulnerability caveats. The single exception is clear evidence of deliberate malice, which becomes the verdict's decisive reason on line one.
 
 ---
 
@@ -14,12 +16,8 @@ Use this structure. Keep a single-skill report near one page and a large-pack re
 
 - Source: `<URL or local path>`
 - Revision: `<commit SHA, release, or “not available”>`
-- Local state: `<clean/dirty/not applicable; content-hash manifest location when required>`
-- Inspected: `<counts for skills, scripts/executables, docs, manifests, hooks/commands/agents>`
-- Skipped or unavailable: `<symlinks, binaries, oversized files, submodules, history, issues, or “none”>`
-- Coverage ledger: `<inline for small targets; otherwise attach a coverage-ledger appendix with one row per relevant path>`
-
-If an executable or install-relevant item was not inspected, explain why the verdict is capped at 🔴 SKIP FOR NOW.
+- Local state: `<clean/dirty/not applicable>`
+- Not read: `<one line, or “nothing material”>`
 
 ## What it actually is
 
@@ -52,14 +50,6 @@ Name duplicated, generic, decorative, or misleading components. If none exists, 
 | Installation permissions | <global writes, privilege, hooks, persistence> | <what changes on the machine> |
 | Maintenance | <history, releases, issues> | <healthy, stale, or unverified> |
 | Context footprint | <descriptions and loaded content> | <trigger/cost impact> |
-
-## Safety
-
-- Behavior-like findings: `<file:line evidence and contextual judgment, or “none found in inspected files”>`
-- Context-only mentions: `<relevant leads or “none”>`
-- Coverage limits: `<anything static analysis could not inspect>`
-
-Static review cannot prove safety. State only what was or was not found within the inspected revision and scope.
 
 ## 10-minute reading map
 

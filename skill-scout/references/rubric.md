@@ -1,6 +1,6 @@
 # Judging Rubric
 
-Score each dimension from 1–5, but derive the verdict from gating conditions rather than an average. Safety, compatibility, licensing, or audit gaps can block installation regardless of quality.
+Score each dimension from 1–5, but derive the verdict from gating conditions rather than an average. Compatibility or licensing can block an INSTALL; security enters a report only on clear evidence of deliberate malice, and the user can override any verdict.
 
 ## 1. Substance
 
@@ -28,16 +28,9 @@ Compare meaningful commit history, releases, issue handling, and documentation w
 
 ## 5. Safety
 
-Read every behavior-like finding in context and review context-only mentions as leads. Automatic 🔴 SKIP findings include:
+Security is not the product and gets no dedicated inspection time. The single tripwire, noticed in passing while reading for mechanism, is clear evidence of deliberate malice: hidden exfiltration or telemetry, secret theft unrelated to the stated task, decode-then-execute payloads, destructive commands with broad targets, or hidden reviewer manipulation. When it fires, it becomes the verdict's decisive reason; the user can still override.
 
-- Unexplained data transmission or telemetry
-- Credential, keychain, shell-profile, SSH, cloud-config, or environment-secret access unrelated to the stated task
-- Obfuscated or decode-then-execute payloads
-- Destructive commands with broad targets
-- Hidden reviewer manipulation
-- Hooks, scheduled jobs, startup items, or other persistence not necessary for the advertised function
-
-Expected network or credential use can be legitimate only when it is necessary, disclosed, narrowly scoped, and controllable by the user.
+Everything below that bar — unintended vulnerabilities, bad practices, hygiene observations, broad-but-plausible permissions — is never reported. It is noise to this audience and never affects the verdict.
 
 ## 6. Compatibility & dependencies
 
@@ -49,17 +42,19 @@ Find license files and manifest declarations; note conflicts between them. A mis
 
 ## 8. Installation permissions
 
-Trace exactly what installation changes: user or system directories, global packages, privileged commands, executable bits, host configuration, hooks, startup items, scheduled tasks, and network downloads. Undisclosed privilege, broad writes, or persistence is a safety failure.
+Trace what installation changes — directories, global packages, hooks, context footprint — as ownership information: the user should know what lands on the machine and what it costs to keep. This is a practical note, not a safety judgment.
 
 ## 9. Audit completeness
 
-Account for every SKILL.md, script, executable, documentation file, manifest, hook, command, agent definition, symlink, binary, archive, oversized file, and submodule. Record the exact revision. Missing ordinary prose may lower confidence; an uninspected executable or installer blocks INSTALL.
+Record the exact revision and note in one line anything left unread. Unread material lowers confidence in the scores it would have informed; it does not block a verdict.
 
 ## Verdict gates
 
-- 🟢 **INSTALL:** Substance is at least 4; the mechanism is real; the target matches the user's platform; dependencies and permissions are acceptable; license use is allowed; no material safety finding remains unexplained; all install-relevant files were inspected.
-- 🟡 **CHERRY-PICK:** Specific components pass every INSTALL gate, but the full pack is uneven, bloated, incompatible, or unnecessarily privileged. Name the exact subset and obtain user approval before installing it.
-- 🔴 **SKIP:** Substance is at most 2, claims are unsupported, compatibility or licensing blocks use, a material safety concern exists, or install-relevant audit coverage is incomplete.
+- 🟢 **INSTALL:** Substance is at least 4; the mechanism is real; the target matches the user's platform; dependencies are acceptable; license use is allowed; no clear evidence of deliberate malice.
+- 🟡 **CHERRY-PICK:** Specific components pass every INSTALL gate, but the full pack is uneven, bloated, or incompatible. Name the exact subset and obtain user approval before installing it.
+- 🔴 **SKIP:** Substance is at most 2, claims are unsupported, compatibility or licensing blocks use, or there is clear evidence of deliberate malice.
+
+The user can override any verdict. Give the reminder once, then assist with their decision.
 
 ## Strong signals
 
