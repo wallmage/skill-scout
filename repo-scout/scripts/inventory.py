@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Inventory an untrusted skill repository without executing its code.
+"""Inventory an untrusted tool repository without executing its code.
 
 Usage: python inventory.py <path-to-repository>
 
@@ -35,13 +35,16 @@ SECURE_RELATIVE_OPEN_SUPPORTED = (
 SKIP_DIRS = {
     ".git",
     ".hg",
+    ".next",
     ".svn",
     ".venv",
     "__pycache__",
     "build",
+    "coverage",
     "dist",
     "node_modules",
     "target",
+    "vendor",
     "venv",
 }
 SCRIPT_EXTS = {
@@ -71,6 +74,23 @@ MANIFEST_NAMES = {
     "pom.xml": "Maven manifest",
     "pyproject.toml": "Python project manifest",
 }
+DEPLOYMENT_COMPOSE_NAMES = {
+    "compose.yaml",
+    "compose.yml",
+    "docker-compose.yaml",
+    "docker-compose.yml",
+}
+SERVER_ENTRY_NAMES = {
+    "asgi.py",
+    "main.go",
+    "manage.py",
+    "server.js",
+    "server.mjs",
+    "server.py",
+    "server.ts",
+    "wsgi.py",
+}
+FRONTEND_DIR_NAMES = {"app", "frontend", "web"}
 
 
 @dataclass(frozen=True)
@@ -121,6 +141,21 @@ class DependencyRecord:
 
 
 @dataclass(frozen=True)
+class ArchetypeHint:
+    signal: str
+    detail: str = ""
+    path: str = ""
+
+
+@dataclass
+class RepositoryScale:
+    total_files: int = 0
+    total_text_lines: int = 0
+    top_extensions: List[Tuple[str, int, int]] = field(default_factory=list)
+    tier: str = "Small"
+
+
+@dataclass(frozen=True)
 class _ComponentSnapshot:
     """Identity fields used to detect fallback-path changes before reading."""
 
@@ -148,6 +183,8 @@ class Inventory:
     licenses: List[EvidenceRecord] = field(default_factory=list)
     compatibility: List[EvidenceRecord] = field(default_factory=list)
     install_surfaces: List[EvidenceRecord] = field(default_factory=list)
+    archetype_hints: List[ArchetypeHint] = field(default_factory=list)
+    scale: RepositoryScale = field(default_factory=RepositoryScale)
 
 
 BEHAVIOR_PATTERNS: List[Tuple[str, Pattern[str]]] = [
@@ -467,6 +504,18 @@ def _parse_package_json(text: str, rel: str, result: Inventory) -> None:
                     EvidenceRecord(category, rel, str(value)),
                 )
 
+    bin_value = data.get("bin")
+    if isinstance(bin_value, (str, dict)) and bin_value:
+        _append_unique(
+            result.archetype_hints,
+            ArchetypeHint("package entry point", "bin declared", rel),
+        )
+    if "contributes" in data or (isinstance(engines, dict) and "vscode" in engines):
+        _append_unique(
+            result.archetype_hints,
+            ArchetypeHint("extension manifest", "VS Code extension package.json", rel),
+        )
+
 
 def _toml_section(text: str, name: str) -> str:
     match = re.search(
@@ -557,6 +606,14 @@ def _parse_pyproject(text: str, rel: str, result: Inventory) -> None:
             if dependency:
                 _append_unique(result.dependencies, dependency)
 
+    if re.search(r"(?m)^\s*\[project\.scripts\]", text) or re.search(
+        r"(?m)^\s*\[project\.entry-points", text
+    ):
+        _append_unique(
+            result.archetype_hints,
+            ArchetypeHint("package entry point", "project.scripts declared", rel),
+        )
+
 
 def _parse_requirements(text: str, rel: str, result: Inventory) -> None:
     for line in text.splitlines():
@@ -622,6 +679,19 @@ def _parse_cargo_toml(text: str, rel: str, result: Inventory) -> None:
                 )
 
 
+def _parse_web_manifest(text: str, rel: str, result: Inventory) -> None:
+    """Flag a browser/WebExtension manifest by its declared manifest_version."""
+    try:
+        data = json.loads(text)
+    except (json.JSONDecodeError, TypeError):
+        return
+    if isinstance(data, dict) and "manifest_version" in data:
+        _append_unique(
+            result.archetype_hints,
+            ArchetypeHint("extension manifest", "browser WebExtension manifest", rel),
+        )
+
+
 def _parse_manifest(record: FileRecord, text: str, result: Inventory) -> None:
     filename = Path(record.path).name.lower()
     if filename == "package.json":
@@ -634,6 +704,8 @@ def _parse_manifest(record: FileRecord, text: str, result: Inventory) -> None:
         _parse_go_mod(text, record.path, result)
     elif filename == "cargo.toml":
         _parse_cargo_toml(text, record.path, result)
+    elif filename == "manifest.json":
+        _parse_web_manifest(text, record.path, result)
 
 
 def _iter_scannable_lines(
@@ -976,6 +1048,96 @@ def _scan_findings(
     return findings
 
 
+def _compute_tier(total_files: int, total_text_lines: int) -> str:
+    """Map size to a triage tier using the design's thresholds."""
+    if total_files > 2000 or total_text_lines > 300000:
+        return "Large"
+    if total_files > 200:
+        return "Medium"
+    return "Small"
+
+
+def _compute_scale(result: Inventory) -> RepositoryScale:
+    """Summarize inspected file count, text lines, top extensions, and tier."""
+    lines_by_ext: Dict[str, int] = {}
+    files_by_ext: Dict[str, int] = {}
+    total_text_lines = 0
+    for record in result.scanned_files:
+        total_text_lines += record.lines
+        ext = Path(record.path).suffix.lower() or "(no extension)"
+        lines_by_ext[ext] = lines_by_ext.get(ext, 0) + record.lines
+        files_by_ext[ext] = files_by_ext.get(ext, 0) + 1
+    ranked = sorted(lines_by_ext.items(), key=lambda item: (-item[1], item[0]))
+    top_extensions = [
+        (ext, line_count, files_by_ext[ext]) for ext, line_count in ranked[:5]
+    ]
+    total_files = len(result.scanned_files)
+    return RepositoryScale(
+        total_files=total_files,
+        total_text_lines=total_text_lines,
+        top_extensions=top_extensions,
+        tier=_compute_tier(total_files, total_text_lines),
+    )
+
+
+def _collect_archetype_hints(result: Inventory) -> None:
+    """Record descriptive classification signals observed by name and manifests.
+
+    Manifest-derived hints (entry points, extension manifests) are appended
+    during parsing; this finalizer adds the name-based signals.
+    """
+    if result.skills:
+        _append_unique(
+            result.archetype_hints,
+            ArchetypeHint("SKILL.md files", f"{len(result.skills)} present"),
+        )
+
+    seen = {record.path for record in result.scanned_files}
+    seen.update(record.path for record in result.skipped)
+    for rel in sorted(seen):
+        path = Path(rel)
+        name = path.name.lower()
+        parent_parts = {part.lower() for part in path.parts[:-1]}
+        if name in DEPLOYMENT_COMPOSE_NAMES:
+            _append_unique(
+                result.archetype_hints,
+                ArchetypeHint("deployment file", "Docker Compose", rel),
+            )
+        elif name == "dockerfile" or name.startswith("dockerfile."):
+            _append_unique(
+                result.archetype_hints,
+                ArchetypeHint("deployment file", "Dockerfile", rel),
+            )
+        elif name == "procfile":
+            _append_unique(
+                result.archetype_hints,
+                ArchetypeHint("deployment file", "Procfile", rel),
+            )
+        elif parent_parts & {"k8s", "kubernetes"} and name.endswith(
+            (".yaml", ".yml")
+        ):
+            _append_unique(
+                result.archetype_hints,
+                ArchetypeHint("deployment file", "Kubernetes manifest", rel),
+            )
+
+        if name in SERVER_ENTRY_NAMES:
+            _append_unique(
+                result.archetype_hints,
+                ArchetypeHint("server entry", name, rel),
+            )
+
+        if name == "package.json" and path.parent.name.lower() in FRONTEND_DIR_NAMES:
+            _append_unique(
+                result.archetype_hints,
+                ArchetypeHint(
+                    "frontend directory",
+                    f"{path.parent.name}/ with package.json",
+                    rel,
+                ),
+            )
+
+
 def scan_repository(root: Path, max_file_bytes: int = DEFAULT_MAX_FILE_BYTES) -> Inventory:
     """Safely collect a deterministic inventory of *root*."""
     requested_root = Path(root).expanduser()
@@ -1212,6 +1374,12 @@ def scan_repository(root: Path, max_file_bytes: int = DEFAULT_MAX_FILE_BYTES) ->
                 getattr(item, "name", ""),
             )
         )
+
+    _collect_archetype_hints(result)
+    result.archetype_hints.sort(
+        key=lambda hint: (hint.signal, hint.path, hint.detail)
+    )
+    result.scale = _compute_scale(result)
     return result
 
 
@@ -1242,6 +1410,27 @@ def render_inventory(result: Inventory) -> str:
         lines.append(
             "Fallback mode is guarded but weaker than strict descriptor-relative reads."
         )
+    lines.append("")
+    scale = result.scale
+    lines.append("Repository scale:")
+    lines.append(f"  Files inspected: {scale.total_files}")
+    lines.append(f"  Text lines: {scale.total_text_lines}")
+    lines.append(f"  Tier: {_safe_display(scale.tier)}")
+    lines.append(f"  Top extensions by line count: {len(scale.top_extensions)}")
+    for ext, ext_lines, ext_files in scale.top_extensions:
+        lines.append(
+            f"    {_safe_display(ext)}: {ext_lines} lines ({ext_files} file(s))"
+        )
+
+    lines.extend(["", f"Archetype hints: {len(result.archetype_hints)}"])
+    for hint in result.archetype_hints:
+        detail = f": {_safe_display(hint.detail)}" if hint.detail else ""
+        location = f" ({_safe_display(hint.path)})" if hint.path else ""
+        lines.append(f"  [{_safe_display(hint.signal)}]{detail}{location}")
+    lines.append(
+        "Archetype hints are descriptive signals only; they do not classify the repository."
+    )
+
     lines.append("")
     lines.append(f"Skills found: {len(result.skills)}")
     for item in result.skills:

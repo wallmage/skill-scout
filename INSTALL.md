@@ -1,8 +1,8 @@
-# Installing skill-scout
+# Installing Repo Scout
 
-`skill-scout` is an Agent Skill: English instructions, two reference files, OpenAI interface metadata, and one Python standard-library scanner. Python is optional because an agent can reproduce the inventory manually; Git or another source-download method is optional for the same reason.
+`repo-scout` is an Agent Skill: English instructions, two reference files, OpenAI interface metadata, and one Python standard-library scanner. Python is optional because an agent can reproduce the inventory manually; Git or another source-download method is optional for the same reason.
 
-Clone or download this repository first, then copy the inner `skill-scout/` directory to the location your agent discovers.
+Clone or download this repository first, then copy the inner `repo-scout/` directory to the location your agent discovers.
 
 ## Claude Code / Claude Desktop
 
@@ -10,33 +10,33 @@ Personal skill, available across projects:
 
 ```bash
 mkdir -p ~/.claude/skills
-cp -R skill-scout ~/.claude/skills/skill-scout
+cp -R repo-scout ~/.claude/skills/repo-scout
 ```
 
 Project-only alternative:
 
 ```text
-<project>/.claude/skills/skill-scout/SKILL.md
+<project>/.claude/skills/repo-scout/SKILL.md
 ```
 
-Claude Code detects changes inside an existing skills directory. Restart it if the top-level directory did not exist when the session began. If you received `skill-scout.skill`, open it in a supported Claude desktop surface and choose **Save skill**.
+Claude Code detects changes inside an existing skills directory. Restart it if the top-level directory did not exist when the session began. If you received `repo-scout.skill`, open it in a supported Claude desktop surface and choose **Save skill**.
 
 ## OpenAI Codex
 
 Personal skill, available across repositories:
 
 ```bash
-mkdir -p ~/.agents/skills
-cp -R skill-scout ~/.agents/skills/skill-scout
+mkdir -p ~/.codex/skills
+cp -R repo-scout ~/.codex/skills/repo-scout
 ```
 
 Project-only alternative:
 
 ```text
-<project>/.agents/skills/skill-scout/SKILL.md
+<project>/.codex/skills/repo-scout/SKILL.md
 ```
 
-Invoke it explicitly with `$skill-scout`, or let Codex select it from the description. Codex normally detects skill changes automatically; restart if it does not appear. `agents/openai.yaml` supplies desktop UI metadata.
+Invoke it explicitly with `$repo-scout`, or let Codex select it from the description. Codex normally detects skill changes automatically; restart if it does not appear. `agents/openai.yaml` supplies desktop UI metadata.
 
 ## Gemini CLI
 
@@ -44,10 +44,10 @@ Gemini CLI supports project Agent Skills under `.agents/skills/`:
 
 ```bash
 mkdir -p <project>/.agents/skills
-cp -R skill-scout <project>/.agents/skills/skill-scout
+cp -R repo-scout <project>/.agents/skills/repo-scout
 ```
 
-Start Gemini CLI from that project and ask it to use `skill-scout` on a repository URL.
+Start Gemini CLI from that project and ask it to use `repo-scout` on a repository URL.
 
 ## Other Agent Skills-compatible tools
 
@@ -57,9 +57,9 @@ Copy the directory to the tool's documented personal or project Agent Skills loc
 
 Attach or paste:
 
-1. `skill-scout/SKILL.md`
-2. `skill-scout/references/rubric.md`
-3. `skill-scout/references/report-template.md`
+1. `repo-scout/SKILL.md`
+2. `repo-scout/references/rubric.md`
+3. `repo-scout/references/report-template.md`
 
 Without filesystem and source-access tools, also provide the target repository files. Missing install-relevant files must cap the verdict at 🔴 SKIP FOR NOW.
 
@@ -68,7 +68,7 @@ Without filesystem and source-access tools, also provide the target repository f
 Ask:
 
 ```text
-Use skill-scout to audit https://github.com/example/example-skill before I install it.
+Use repo-scout to audit https://github.com/example/example-skill before I install it.
 ```
 
 The response should:

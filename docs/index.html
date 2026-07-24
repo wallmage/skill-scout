@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>skill-scout — Your CTO for AI skills</title>
-<meta name="description" content="Paste a skill repo link. It accounts for every path, inspects the reviewable source, reports gaps, and gives a straight verdict.">
+<title>Repo Scout — Your CTO for open-source tools</title>
+<meta name="description" content="Point Repo Scout at any repository, project site, or package page. It reads the source and gives a straight install, cherry-pick, or skip verdict.">
 <style>
   :root {
     --bg: #fbfaf9; --fg: #1a1a19; --muted: #6b6a66; --line: #e5e3df;
@@ -88,11 +88,11 @@
 <div class="wrap">
 
 <header>
-  <h1 class="logo">🔍 skill-<span>scout</span></h1>
-  <p class="tagline" data-lang="en">Your CTO for AI skills.</p>
-  <p class="sub" data-lang="en">Paste a link. It accounts for every path, inspects the reviewable source, reports anything it cannot inspect, then tells you straight: install it, take only the good parts, or stay away.</p>
-  <p class="tagline" data-lang="zh">装 AI 技能前，先把它查清楚。</p>
-  <p class="sub" data-lang="zh">贴上仓库链接。它会把整个仓库逐项查一遍；无法检查的部分会单独列出，然后直接说：值得安装、只挑精华，还是别装。</p>
+  <h1 class="logo">🔍 repo-<span>scout</span></h1>
+  <p class="tagline" data-lang="en">Your CTO for open-source tools.</p>
+  <p class="sub" data-lang="en">Point it at a repository, project site, or package page. It finds the source, reads what matters, and tells you straight: install it, take only the good parts, or stay away.</p>
+  <p class="tagline" data-lang="zh">开源工具值不值得用，先让源码说话。</p>
+  <p class="sub" data-lang="zh">贴上仓库、项目官网或包管理页面。它会找到源码、读清真正有用的部分，再直接告诉你：值得安装、只挑精华，还是别碰。</p>
 
   <div class="langbar">
     <button id="btn-en" aria-pressed="true">English</button>
@@ -104,28 +104,28 @@
 <main data-lang="en" class="on">
 
 <h2>The problem</h2>
-<p>Every day another thread: <em>"Top 5 research skills — beat McKinsey!"</em> Five GitHub links. Ten minutes on each README, and you still can't tell which one is real.</p>
-<p>Stars don't help. An influencer ships filler and gets 20k stars. A student polishes a genuine gem for months and has 30. The honest answer is inside the files — and nobody has two hours per repo.</p>
+<p>Every day another thread: <em>"Top 5 research skills — beat McKinsey!"</em> or <em>"This self-hosted app replaces a $200/mo SaaS."</em> A handful of links. Ten minutes on each README, and you still can't tell which one is real.</p>
+<p>Stars don't help. An influencer ships filler and gets 20k stars. A student polishes a genuine gem for months and has 30. Whether it is a skill pack, CLI, library, extension, or full application, the honest answer is inside the files — and nobody has two hours per repo.</p>
 
 <h2>What you get back</h2>
 <ol class="steps">
   <li><b>A verdict on the first line</b> — no hedging, with the one-sentence reason.</li>
   <li><b>How it actually works</b> — the real mechanism traced end to end: what triggers, where state lives, what closes the loop. Not the README's marketing.</li>
-  <li><b>The essential 20%</b> — in a 50-skill pack, which handful does the work, and which are the same template with the nouns swapped.</li>
-  <li><b>A 10-minute reading map</b> — 2–4 real file paths, in order, each with what to notice. Read those; the report covers the rest.</li>
-  <li><b>A scoped safety audit</b> — behavior-like code is separated from harmless mentions, with file:line evidence, skipped paths, and explicit limits.</li>
-  <li><b>Installability checks</b> — compatibility, dependencies, license, global writes, privileges, hooks, and persistence.</li>
-  <li><b>Patterns worth stealing</b> — what the author did well, so you get sharper at building your own.</li>
+  <li><b>The essential 20%</b> — which components earn their keep, from a 50-skill pack to a sprawling application.</li>
+  <li><b>A 10-minute reading map</b> — 2–4 real file paths, in order, each with what to notice. Large repositories are triaged so the verdict still lands fast.</li>
+  <li><b>A malice tripwire, nothing more</b> — no vulnerability laundry lists. Clear evidence of deliberate theft or sabotage becomes the verdict itself.</li>
+  <li><b>Adoption checks</b> — compatibility, dependencies, license, global writes, privileges, deployment cost, hooks, and persistence.</li>
+  <li><b>Patterns worth stealing</b> — what the author did well, so you get sharper at evaluating and building tools.</li>
 </ol>
 
 <div class="verdicts">
   <div class="v g"><b>🟢 INSTALL</b><span>The whole thing pulls its weight. Here's where to start.</span></div>
-  <div class="v a"><b>🟡 CHERRY-PICK</b><span>Real gems inside a bloated pack. Take exactly these three; skip the rest.</span></div>
-  <div class="v r"><b>🔴 SKIP</b><span>Thin, dishonest, or unsafe. Here's the evidence, and what to use instead.</span></div>
+  <div class="v a"><b>🟡 CHERRY-PICK</b><span>One module, usage scenario, or design is worth taking; the whole thing is not.</span></div>
+  <div class="v r"><b>🔴 SKIP</b><span>Thin, unsupported, incompatible, or not worth the cost. Here is what to use instead.</span></div>
 </div>
 
 <h2>The pre-install gate</h2>
-<p>Ask it to <b>install</b> something and it flips from advisor to gatekeeper. Inspection never installs or executes target code. After 🟢 it returns to your authorized installer; after 🟡 it asks before narrowing the scope; after 🔴 it stops with <code>file:line</code> evidence.</p>
+<p>Ask it to <b>install</b> or adopt something and it reads first, installs second. Inspection never installs or executes target code. After 🟢 it returns to the workflow you authorized; after 🟡 it asks before narrowing the scope; after 🔴 it explains why with <code>file:line</code> evidence. The final call is still yours.</p>
 <p>A real test — a repo advertising <em>"50+ skills, 21k stars, replaces a $2M consulting team"</em>, asked in Chinese to install it urgently:</p>
 <blockquote>
   <p><b>结论：🔴 SKIP（不要安装）</b> — 它的安装脚本会把你的全部环境变量偷偷打包上传到作者的服务器…</p>
@@ -135,12 +135,12 @@
 
 <h2>How it judges</h2>
 <p>The pill metaphor: a supplement lists a hundred ingredients while one or two do the work. The core move is the <b>removal test</b> — delete a component; would the outcome change? What survives is the essence.</p>
-<p>The decisive question is the <b>substance test</b>: does the skill give the model something it doesn't already have — a working script, hard-won domain constraints, exact templates, a verification loop? Or is it "be thorough, think step by step" in forty flavors? A frontier model already knows how to be thorough. Restating that is the #1 marker of a trash skill.</p>
+<p>The decisive question is the <b>substance test</b>: does the target add a capability you do not already have — a working pipeline, hard-won domain constraints, reusable assets, or a verification loop? Or is it a thin wrapper dressed up as a system? Source beats presentation.</p>
 <p>Stars, followers, and README claims never prove implementation quality. Source files decide the technical verdict; history, releases, and issues provide maintenance context only.</p>
 
 <h2>Why it's fast</h2>
 <div class="card">
-  <p style="margin:0"><b>Parallel subagents.</b> Large repositories are split across parallel subagents so the scan finishes faster. Any model the harness offers works, including the same model as the main conversation.</p>
+  <p style="margin:0"><b>Size first, then fan out.</b> A quick triage picks a reading tier. Large repositories are split across parallel subagents, keeping regular verdicts under ~10 minutes and very large ones under ~15.</p>
 </div>
 <p>It also <b>never runs the code it judges</b>. The repo is treated as untrusted data throughout — it dissects the pill, it doesn't swallow it. Instructions hidden inside a repo aimed at the reviewing AI are reported as a red flag, never obeyed.</p>
 
@@ -153,21 +153,24 @@
 </table>
 </div>
 <p>The baseline failed exactly where a busy person gets hurt: hedged non-verdicts ("probably yes, if…") and no safety check at all — it missed a live telemetry call the skill caught.</p>
+<p>This benchmark covered skill repositories; support for CLIs, libraries, and applications is newer and is not yet part of this measured set.</p>
 
 <h2>Install</h2>
 <p><b>Claude Code / Claude Desktop</b></p>
-<pre><code>git clone https://github.com/wallmage/skill-scout.git
-cp -r skill-scout/skill-scout ~/.claude/skills/skill-scout</code></pre>
-<p>Or download <code>skill-scout.skill</code> from the repo and click <b>Save skill</b>.</p>
+<pre><code>git clone https://github.com/wallmage/repo-scout.git
+cp -R repo-scout/repo-scout ~/.claude/skills/repo-scout</code></pre>
+<p>Or download <code>repo-scout.skill</code> from the repo and click <b>Save skill</b>.</p>
 <p><b>OpenAI Codex</b></p>
-<pre><code>mkdir -p ~/.agents/skills
-cp -R skill-scout/skill-scout ~/.agents/skills/skill-scout</code></pre>
+<pre><code>mkdir -p ~/.codex/skills
+cp -R repo-scout/repo-scout ~/.codex/skills/repo-scout</code></pre>
 <p><b>Gemini CLI and other Agent Skills tools</b> — see <code>INSTALL.md</code> for native project and personal discovery paths.</p>
 
 <h2>Then just ask</h2>
 <pre><code>Is this worth installing? https://github.com/someone/some-skill-pack
 
-thoughts? https://github.com/someone/skills
+Is this worth deploying? https://deerflow.tech
+
+thoughts? https://github.com/someone/some-cli-tool
 
 Which of these five is best? &lt;link&gt; &lt;link&gt; &lt;link&gt; &lt;link&gt; &lt;link&gt;
 
@@ -175,8 +178,8 @@ Install this for me: https://github.com/someone/viral-skill   ← gets vetted fi
 <p>Ask in any language and the whole verdict comes back in that language.</p>
 
 <p style="margin-top:36px">
-  <a class="cta" href="https://github.com/wallmage/skill-scout">View on GitHub →</a>
-  <a class="cta ghost" href="https://github.com/wallmage/skill-scout/blob/main/INSTALL.md">Install guide</a>
+  <a class="cta" href="https://github.com/wallmage/repo-scout">View on GitHub →</a>
+  <a class="cta ghost" href="https://github.com/wallmage/repo-scout/blob/main/INSTALL.md">Install guide</a>
 </p>
 
 </main>
@@ -185,28 +188,28 @@ Install this for me: https://github.com/someone/viral-skill   ← gets vetted fi
 <main data-lang="zh">
 
 <h2>问题在哪</h2>
-<p>每天都有新帖子：<em>“五个必装研究技能，吊打麦肯锡！”</em> 点进去就是五个 GitHub 链接。每份 README 读十分钟，还是分不清谁真有料。</p>
-<p>星数也帮不上忙。网红随手拼的垃圾能有两万星，学生磨几个月的好东西可能只有三十星。答案在文件里，可谁会为一个仓库花两小时？</p>
+<p>每天都有新帖子：<em>“五个必装研究技能，吊打麦肯锡！”</em> 或者 <em>“这个自托管应用顶替每月 200 美元的 SaaS。”</em> 点进去是一串链接。每份 README 读十分钟，还是分不清谁真有料。</p>
+<p>星数也帮不上忙。网红随手拼的垃圾能有两万星，学生磨几个月的好东西可能只有三十星。不管它是技能包、命令行工具、代码库，还是完整应用，答案都在文件里，可谁会为一个仓库花两小时？</p>
 
 <h2>它能给你什么</h2>
 <ol class="steps">
   <li><b>第一行给结论</b>：不打太极，一句话说清理由。</li>
   <li><b>它到底怎么跑</b>：什么触发、状态放哪、怎样收尾。看实现，不听 README 自夸。</li>
-  <li><b>真正有用的 20%</b>：50 个技能的大包里，哪几个真在干活，哪些只是模板换名词。</li>
-  <li><b>10 分钟阅读路线</b>：按顺序列出 2–4 个真实文件路径，并说清该看什么。报告会交代其余内容和无法检查的部分。</li>
-  <li><b>说清边界的安全审查</b>：区分可能触发实际操作的代码和普通文字提及，列出文件、行号、跳过项与检查边界。静态检查不能证明绝对安全。</li>
-  <li><b>能不能装</b>：平台兼容性、依赖、许可证、全局写入、提权，以及 hooks、commands、agents 和持久化行为都会查。</li>
-  <li><b>可借鉴的做法</b>：作者哪里做对了，方便你以后写自己的技能。</li>
+  <li><b>真正有用的 20%</b>：从 50 个技能的大包到庞大应用，哪些组件真在干活，哪些只是填充。</li>
+  <li><b>10 分钟阅读路线</b>：按顺序列出 2–4 个真实文件路径，并说清该看什么。大仓库会先分级，尽快给出结论。</li>
+  <li><b>只拦蓄意作恶</b>：不列安全缺陷清单。只有发现蓄意窃取或破坏的确凿证据，才会直接写进结论。</li>
+  <li><b>采用成本</b>：平台兼容性、依赖、许可证、全局写入、提权、部署成本，以及 hooks、commands、agents 和持久化行为都会查。</li>
+  <li><b>可借鉴的做法</b>：作者哪里做对了，方便你以后判断和构建工具。</li>
 </ol>
 
 <div class="verdicts">
   <div class="v g"><b>🟢 值得安装</b><span>整个包都有用，报告也会告诉你先从哪里看。</span></div>
-  <div class="v a"><b>🟡 只挑精华</b><span>臃肿的包里有真货。只拿这三个，其余跳过。</span></div>
-  <div class="v r"><b>🔴 别装</b><span>空洞、造假或不安全。会附上证据和替代方案。</span></div>
+  <div class="v a"><b>🟡 只挑精华</b><span>只有某个模块、使用场景或设计值得拿走，不必整套采用。</span></div>
+  <div class="v r"><b>🔴 别装</b><span>内容太薄、宣传无依据、不兼容，或成本不划算，并给出替代方案。</span></div>
 </div>
 
 <h2>安装前，先过一关</h2>
-<p>只要你说要<b>安装</b>，它就从顾问变成把关人。检查时不会安装或运行目标代码。🟢 回到你已授权的安装流程，🟡 先请你确认缩小后的范围，🔴 停下并给出 <code>文件:行号</code> 证据。</p>
+<p>只要你要求<b>安装</b>或采用，它会先读后装。检查时不会安装或运行目标代码。🟢 回到你已授权的流程，🟡 先请你确认缩小后的范围，🔴 用 <code>文件:行号</code> 说明原因。最终决定权仍在你。</p>
 <p>真实测试里，一个仓库自称 <em>“50+ 技能、2.1 万星、替代 200 万美元咨询团队”</em>，还用中文催它赶紧装：</p>
 <blockquote>
   <p><b>结论：🔴 SKIP（不要安装）</b> —— 它的安装脚本会把你的全部环境变量偷偷打包上传到作者的服务器，这是窃取凭据的行为，一票否决。</p>
@@ -215,12 +218,12 @@ Install this for me: https://github.com/someone/viral-skill   ← gets vetted fi
 
 <h2>它怎么判断</h2>
 <p>把技能包当成一瓶保健品。配料表写了一百种，真正起作用的往往只有一两种。<b>删除测试</b>很直接：删掉某个部分，结果会不会变？没差的，就不算核心。</p>
-<p>再做<b>含金量测试</b>。它有没有带来模型原本没有的东西：能跑的脚本、来之不易的领域约束、精确模板或验证闭环？还是把“要全面、一步步想”换着说了四十遍？前沿模型本来就能全面思考。反复提醒这件事，是垃圾技能最常见的信号。</p>
+<p>再做<b>含金量测试</b>。这个项目有没有带来你原本没有的能力，例如真正能跑的流程、来之不易的领域约束、可复用资产或验证闭环？还是只给一个 API 套了层华丽外壳？实现比包装重要。</p>
 <p>星数、粉丝数和 README 的自夸证明不了实现质量。技术结论看源文件。提交历史、版本和 issue 只用来了解维护情况。</p>
 
 <h2>速度怎么来</h2>
 <div class="card">
-  <p style="margin:0"><b>并行子代理。</b> 大仓库会拆分给多个并行子代理同时扫描，加快审读速度。子代理用什么模型由平台决定，与主模型相同也没问题。</p>
+  <p style="margin:0"><b>先分级，再并行。</b> 它会先判断仓库规模，再把大仓库拆给多个子代理同时审读：常规仓库尽量控制在十分钟内，超大仓库控制在十五分钟内。</p>
 </div>
 <p>它还<b>不运行正在审查的代码</b>。仓库全程当作不可信数据：只看配料，不吞下去。藏在仓库里、写给“审查 AI”的指令会被标成危险信号，不会照做。</p>
 
@@ -228,26 +231,29 @@ Install this for me: https://github.com/someone/viral-skill   ← gets vetted fi
 <p>同一个模型做两组对照：一组装上该技能，一组<em>没装</em>。测试用的是真实仓库（<code>obra/superpowers</code>、<code>anthropics/skills</code>）。</p>
 <div class="tablewrap">
 <table>
-  <tr><th></th><th>装了 skill-scout</th><th>没装</th></tr>
+  <tr><th></th><th>装了 repo-scout</th><th>没装</th></tr>
   <tr><td>通过的检验项</td><td><b>100%</b>（14/14）</td><td>64%（9/14）</td></tr>
 </table>
 </div>
 <p>没装技能的那组，偏偏在最要紧的地方失手：只会含糊地说“大概值得吧，如果……”，也没做安全检查，还漏掉了一个真实的遥测请求。装上技能的那组把这个请求找出来了。</p>
+<p>这次基准测试覆盖的是技能仓库；对命令行工具、代码库和应用的更广支持是新加入的，尚未纳入这组实测数据。</p>
 
 <h2>安装</h2>
 <p><b>Claude Code / Claude 桌面版</b></p>
-<pre><code>git clone https://github.com/wallmage/skill-scout.git
-cp -r skill-scout/skill-scout ~/.claude/skills/skill-scout</code></pre>
-<p>也可以从仓库下载 <code>skill-scout.skill</code>，点击 <b>Save skill</b>。</p>
+<pre><code>git clone https://github.com/wallmage/repo-scout.git
+cp -R repo-scout/repo-scout ~/.claude/skills/repo-scout</code></pre>
+<p>也可以从仓库下载 <code>repo-scout.skill</code>，点击 <b>Save skill</b>。</p>
 <p><b>OpenAI Codex</b></p>
-<pre><code>mkdir -p ~/.agents/skills
-cp -R skill-scout/skill-scout ~/.agents/skills/skill-scout</code></pre>
+<pre><code>mkdir -p ~/.codex/skills
+cp -R repo-scout/repo-scout ~/.codex/skills/repo-scout</code></pre>
 <p><b>Gemini CLI 及其他支持 Agent Skills 的工具</b>：见 <code>INSTALL.md</code>，装到各工具自己的个人或项目 skill 目录即可。</p>
 
 <h2>直接这样问</h2>
 <pre><code>这个值得装吗? https://github.com/someone/some-skill-pack
 
-帮我看看这个 https://github.com/someone/skills
+这个值得部署吗? https://deerflow.tech
+
+帮我看看这个 https://github.com/someone/some-cli-tool
 
 这五个哪个最好? &lt;链接&gt; &lt;链接&gt; &lt;链接&gt; &lt;链接&gt; &lt;链接&gt;
 
@@ -255,15 +261,15 @@ cp -R skill-scout/skill-scout ~/.agents/skills/skill-scout</code></pre>
 <p>你用什么语言问，整份结论就用什么语言答。</p>
 
 <p style="margin-top:36px">
-  <a class="cta" href="https://github.com/wallmage/skill-scout">去 GitHub 看看 →</a>
-  <a class="cta ghost" href="https://github.com/wallmage/skill-scout/blob/main/INSTALL.md">安装指南</a>
+  <a class="cta" href="https://github.com/wallmage/repo-scout">去 GitHub 看看 →</a>
+  <a class="cta ghost" href="https://github.com/wallmage/repo-scout/blob/main/INSTALL.md">安装指南</a>
 </p>
 
 </main>
 
 <footer>
-  <p data-lang="en" class="on">MIT licensed · <a href="https://github.com/wallmage/skill-scout">github.com/wallmage/skill-scout</a></p>
-  <p data-lang="zh">采用 MIT 许可证 · <a href="https://github.com/wallmage/skill-scout">github.com/wallmage/skill-scout</a></p>
+  <p data-lang="en" class="on">MIT licensed · <a href="https://github.com/wallmage/repo-scout">github.com/wallmage/repo-scout</a></p>
+  <p data-lang="zh">采用 MIT 许可证 · <a href="https://github.com/wallmage/repo-scout">github.com/wallmage/repo-scout</a></p>
 </footer>
 
 </div>
@@ -276,12 +282,12 @@ cp -R skill-scout/skill-scout ~/.agents/skills/skill-scout</code></pre>
     });
     document.getElementById('btn-en').setAttribute('aria-pressed', String(lang === 'en'));
     document.getElementById('btn-zh').setAttribute('aria-pressed', String(lang === 'zh'));
-    try { localStorage.setItem('ss-lang', lang); } catch (e) {}
+    try { localStorage.setItem('repo-scout-lang', lang); } catch (e) {}
   };
   document.getElementById('btn-en').addEventListener('click', () => setLang('en'));
   document.getElementById('btn-zh').addEventListener('click', () => setLang('zh'));
   let initial = (navigator.language || '').toLowerCase().startsWith('zh') ? 'zh' : 'en';
-  try { initial = localStorage.getItem('ss-lang') || initial; } catch (e) {}
+  try { initial = localStorage.getItem('repo-scout-lang') || initial; } catch (e) {}
   setLang(initial);
 </script>
 </body>

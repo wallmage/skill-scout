@@ -1,0 +1,4 @@
+interface:
+  display_name: "Repo Scout"
+  short_description: "Audit any tool repository before installing it"
+  default_prompt: "Use $repo-scout to audit this repository before I install it."
