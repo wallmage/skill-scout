@@ -1,4 +1,6 @@
 .DS_Store
+.coverage
+.pytest_cache/
 __pycache__/
 *.pyc
 
@@ -8,7 +10,3 @@ planning/
 
 # Scratch task prompts written for coding agents.
 gpt-fix-prompt*.md
-
-# Development-only test suite. The skill runs without it, so it is not
-# published. Kept locally for verifying changes before release.
-tests/

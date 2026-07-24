@@ -1,0 +1,7 @@
+[run]
+branch = True
+source = repo-scout/scripts
+
+[report]
+fail_under = 96
+show_missing = True

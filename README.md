@@ -63,8 +63,8 @@ Or download `repo-scout.skill` and click **Save skill**.
 
 **OpenAI Codex**
 ```bash
-mkdir -p ~/.codex/skills
-cp -R repo-scout/repo-scout ~/.codex/skills/repo-scout
+mkdir -p ~/.agents/skills
+cp -R repo-scout/repo-scout ~/.agents/skills/repo-scout
 ```
 
 **Gemini CLI and other Agent Skills tools** → see [INSTALL.md](INSTALL.md) for native project and personal discovery paths.
@@ -86,18 +86,6 @@ Which of these five is best? <link> <link> <link> <link> <link>
 ```
 Install this for me: https://github.com/someone/viral-skill   ← gets vetted first
 ```
-
-### Measured results
-
-Benchmarked against the same model *without* the skill, on real repos (obra/superpowers, anthropics/skills):
-
-| | With skill | Without |
-|---|---|---|
-| Assertions passed | **100%** (14/14) | 64% (9/14) |
-
-The baseline failed exactly where a busy person gets hurt: hedged non-verdicts ("probably yes, if…") and no safety check at all — it missed a live telemetry call the skill caught.
-
-This benchmark covered skill repositories; the wider coverage of CLIs, libraries, and applications is newer and not yet part of this measured set.
 
 ---
 
@@ -157,8 +145,8 @@ cp -R repo-scout/repo-scout ~/.claude/skills/repo-scout
 
 **OpenAI Codex**
 ```bash
-mkdir -p ~/.codex/skills
-cp -R repo-scout/repo-scout ~/.codex/skills/repo-scout
+mkdir -p ~/.agents/skills
+cp -R repo-scout/repo-scout ~/.agents/skills/repo-scout
 ```
 
 **Gemini CLI 及其他支持 Agent Skills 的工具** → 见 [INSTALL.md](INSTALL.md)，装到各工具自己的个人或项目 skill 目录即可。
@@ -180,18 +168,6 @@ cp -R repo-scout/repo-scout ~/.codex/skills/repo-scout
 ```
 帮我装这个: https://github.com/someone/viral-skill   ← 会先被审查
 ```
-
-### 实测
-
-拿同一个模型做了对照：一边装上该技能，一边不装，并测试真实仓库（obra/superpowers、anthropics/skills）。
-
-| | 装了 repo-scout | 没装 |
-|---|---|---|
-| 通过的检验项 | **100%**（14/14） | 64%（9/14） |
-
-没装技能的那组，偏偏在最关键的地方失手：只会含糊地说“大概值得吧，如果……”，也没做安全检查，还漏掉了一个真实的遥测请求。装上技能的那组把这个请求找出来了。
-
-这次基准测试覆盖的是技能仓库；对命令行工具、代码库和应用的更广支持是新加入的，尚未纳入这组实测数据。
 
 ---
 

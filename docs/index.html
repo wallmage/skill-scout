@@ -144,25 +144,14 @@
 </div>
 <p>It also <b>never runs the code it judges</b>. The repo is treated as untrusted data throughout — it dissects the pill, it doesn't swallow it. Instructions hidden inside a repo aimed at the reviewing AI are reported as a red flag, never obeyed.</p>
 
-<h2>Measured, not claimed</h2>
-<p>Benchmarked against the same model <em>without</em> the skill, on real repos (<code>obra/superpowers</code>, <code>anthropics/skills</code>):</p>
-<div class="tablewrap">
-<table>
-  <tr><th></th><th>With skill</th><th>Without</th></tr>
-  <tr><td>Assertions passed</td><td><b>100%</b> (14/14)</td><td>64% (9/14)</td></tr>
-</table>
-</div>
-<p>The baseline failed exactly where a busy person gets hurt: hedged non-verdicts ("probably yes, if…") and no safety check at all — it missed a live telemetry call the skill caught.</p>
-<p>This benchmark covered skill repositories; support for CLIs, libraries, and applications is newer and is not yet part of this measured set.</p>
-
 <h2>Install</h2>
 <p><b>Claude Code / Claude Desktop</b></p>
 <pre><code>git clone https://github.com/wallmage/repo-scout.git
 cp -R repo-scout/repo-scout ~/.claude/skills/repo-scout</code></pre>
 <p>Or download <code>repo-scout.skill</code> from the repo and click <b>Save skill</b>.</p>
 <p><b>OpenAI Codex</b></p>
-<pre><code>mkdir -p ~/.codex/skills
-cp -R repo-scout/repo-scout ~/.codex/skills/repo-scout</code></pre>
+<pre><code>mkdir -p ~/.agents/skills
+cp -R repo-scout/repo-scout ~/.agents/skills/repo-scout</code></pre>
 <p><b>Gemini CLI and other Agent Skills tools</b> — see <code>INSTALL.md</code> for native project and personal discovery paths.</p>
 
 <h2>Then just ask</h2>
@@ -227,25 +216,14 @@ Install this for me: https://github.com/someone/viral-skill   ← gets vetted fi
 </div>
 <p>它还<b>不运行正在审查的代码</b>。仓库全程当作不可信数据：只看配料，不吞下去。藏在仓库里、写给“审查 AI”的指令会被标成危险信号，不会照做。</p>
 
-<h2>实测，不靠自夸</h2>
-<p>同一个模型做两组对照：一组装上该技能，一组<em>没装</em>。测试用的是真实仓库（<code>obra/superpowers</code>、<code>anthropics/skills</code>）。</p>
-<div class="tablewrap">
-<table>
-  <tr><th></th><th>装了 repo-scout</th><th>没装</th></tr>
-  <tr><td>通过的检验项</td><td><b>100%</b>（14/14）</td><td>64%（9/14）</td></tr>
-</table>
-</div>
-<p>没装技能的那组，偏偏在最要紧的地方失手：只会含糊地说“大概值得吧，如果……”，也没做安全检查，还漏掉了一个真实的遥测请求。装上技能的那组把这个请求找出来了。</p>
-<p>这次基准测试覆盖的是技能仓库；对命令行工具、代码库和应用的更广支持是新加入的，尚未纳入这组实测数据。</p>
-
 <h2>安装</h2>
 <p><b>Claude Code / Claude 桌面版</b></p>
 <pre><code>git clone https://github.com/wallmage/repo-scout.git
 cp -R repo-scout/repo-scout ~/.claude/skills/repo-scout</code></pre>
 <p>也可以从仓库下载 <code>repo-scout.skill</code>，点击 <b>Save skill</b>。</p>
 <p><b>OpenAI Codex</b></p>
-<pre><code>mkdir -p ~/.codex/skills
-cp -R repo-scout/repo-scout ~/.codex/skills/repo-scout</code></pre>
+<pre><code>mkdir -p ~/.agents/skills
+cp -R repo-scout/repo-scout ~/.agents/skills/repo-scout</code></pre>
 <p><b>Gemini CLI 及其他支持 Agent Skills 的工具</b>：见 <code>INSTALL.md</code>，装到各工具自己的个人或项目 skill 目录即可。</p>
 
 <h2>直接这样问</h2>

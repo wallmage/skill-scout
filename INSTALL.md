@@ -26,14 +26,14 @@ Claude Code detects changes inside an existing skills directory. Restart it if t
 Personal skill, available across repositories:
 
 ```bash
-mkdir -p ~/.codex/skills
-cp -R repo-scout ~/.codex/skills/repo-scout
+mkdir -p ~/.agents/skills
+cp -R repo-scout ~/.agents/skills/repo-scout
 ```
 
 Project-only alternative:
 
 ```text
-<project>/.codex/skills/repo-scout/SKILL.md
+<project>/.agents/skills/repo-scout/SKILL.md
 ```
 
 Invoke it explicitly with `$repo-scout`, or let Codex select it from the description. Codex normally detects skill changes automatically; restart if it does not appear. `agents/openai.yaml` supplies desktop UI metadata.
@@ -75,7 +75,7 @@ The response should:
 
 - Open with 🟢 INSTALL, 🟡 CHERRY-PICK, or 🔴 SKIP.
 - Identify the exact source revision and audit coverage.
-- Cover mechanism, dependencies, license, compatibility, installation permissions, safety evidence, and skipped files.
+- Cover mechanism, dependencies, license, compatibility, installation permissions, and skipped files. Mention safety only if clear evidence of deliberate malice determines the verdict.
 - End with a 10-minute reading map and a concrete action.
 - Use the language of your request.
 

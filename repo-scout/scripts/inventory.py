@@ -48,9 +48,13 @@ SKIP_DIRS = {
     "venv",
 }
 SCRIPT_EXTS = {
+    ".bash",
     ".bat",
+    ".cjs",
     ".cmd",
+    ".fish",
     ".js",
+    ".jsx",
     ".lua",
     ".mjs",
     ".php",
@@ -60,11 +64,43 @@ SCRIPT_EXTS = {
     ".rb",
     ".sh",
     ".ts",
+    ".tsx",
     ".zsh",
+}
+SOURCE_EXTS = SCRIPT_EXTS | {
+    ".c",
+    ".cc",
+    ".cpp",
+    ".cs",
+    ".dart",
+    ".ex",
+    ".exs",
+    ".go",
+    ".h",
+    ".hpp",
+    ".java",
+    ".kt",
+    ".kts",
+    ".rs",
+    ".scala",
+    ".sol",
+    ".svelte",
+    ".swift",
+    ".vue",
 }
 DOC_EXTS = {".md", ".mdx", ".rst", ".txt"}
 INTEGRATION_DIRS = {"agents", "commands", "hooks"}
 LICENSE_PREFIXES = ("copying", "license", "notice")
+PACKAGE_LIFECYCLE_SCRIPTS = {
+    "preinstall",
+    "install",
+    "postinstall",
+    "preuninstall",
+    "uninstall",
+    "postuninstall",
+    "prepare",
+    "prepublishOnly",
+}
 MANIFEST_NAMES = {
     "cargo.toml": "Rust package manifest",
     "composer.json": "PHP Composer manifest",
@@ -205,7 +241,7 @@ BEHAVIOR_PATTERNS: List[Tuple[str, Pattern[str]]] = [
     (
         "shell exec",
         re.compile(
-            r"\beval\s*\(|subprocess\.(run|Popen|call|check_call|check_output)\s*\(|os\.(system|popen)\s*\(|child_process\.(exec|spawn)\s*\(|execSync\s*\(|ProcessBuilder\s*\(",
+            r"\beval\s*\(|subprocess\.(run|Popen|call|check_call|check_output)\s*\(|os\.(system|popen)\s*\(|child_process\.(exec|spawn)\s*\(|execSync\s*\(|ProcessBuilder\s*\(|\bexec\.Command(?:Context)?\s*\(|(?:std::process::)?Command::new\s*\(",
             re.IGNORECASE,
         ),
     ),
@@ -258,13 +294,6 @@ CONTEXT_PATTERNS: List[Tuple[str, Pattern[str]]] = [
 ]
 
 INSTALL_SURFACE_PATTERNS: List[Tuple[str, Pattern[str]]] = [
-    (
-        "package lifecycle script",
-        re.compile(
-            r"^\s*['\"](?:preinstall|install|postinstall|preuninstall|uninstall|postuninstall|prepare|prepublishOnly)['\"]\s*:",
-            re.IGNORECASE,
-        ),
-    ),
     ("elevated privilege", re.compile(r"^\s*(sudo|doas)\s+\S+")),
     (
         "global package install",
@@ -450,6 +479,27 @@ def _dependency_from_requirement(
     if not value or value.startswith(("#", "-")):
         return None
     value = value.split(" #", 1)[0].strip()
+    if value.startswith(("./", "../", "/", "file:")):
+        return DependencyRecord(value, "", group, path)
+    if re.match(r"^(?:git|hg|svn|bzr)\+", value, re.IGNORECASE):
+        if "#" in value:
+            url, fragment = value.split("#", 1)
+            fragment_parts = fragment.split("&")
+            egg = next(
+                (
+                    part.removeprefix("egg=")
+                    for part in fragment_parts
+                    if part.startswith("egg=")
+                ),
+                "",
+            )
+            if egg:
+                remaining = [
+                    part for part in fragment_parts if not part.startswith("egg=")
+                ]
+                suffix = f"#{'&'.join(remaining)}" if remaining else ""
+                return DependencyRecord(egg, f"@ {url}{suffix}", group, path)
+        return DependencyRecord(value, "", group, path)
     direct_match = re.match(r"^([A-Za-z0-9_.-]+(?:\[[^]]+\])?)\s*@\s*(.+)$", value)
     if direct_match:
         return DependencyRecord(direct_match.group(1), "@ " + direct_match.group(2), group, path)
@@ -466,6 +516,31 @@ def _parse_package_json(text: str, rel: str, result: Inventory) -> None:
         return
     if not isinstance(data, dict):
         return
+
+    scripts = data.get("scripts", {})
+    if isinstance(scripts, dict):
+        scripts_match = re.search(r'"scripts"\s*:', text)
+        scripts_start = scripts_match.end() if scripts_match else 0
+        for name, command in scripts.items():
+            if name not in PACKAGE_LIFECYCLE_SCRIPTS:
+                continue
+            key_match = re.search(
+                rf'"{re.escape(str(name))}"\s*:',
+                text[scripts_start:],
+            )
+            key_start = scripts_start + key_match.start() if key_match else 0
+            line = text.count("\n", 0, key_start) + 1 if key_match else 0
+            _append_unique(
+                result.install_surfaces,
+                EvidenceRecord(
+                    "package lifecycle script",
+                    rel,
+                    f"{name}: {command}"[:160],
+                    line,
+                    "behavior",
+                    "executable",
+                ),
+            )
 
     dependency_groups = {
         "dependencies": "runtime",
@@ -714,6 +789,8 @@ def _iter_scannable_lines(
     source_kind = (
         "executable"
         if record.kind in {"script", "manifest"} or record.executable
+        else "source"
+        if record.kind == "source"
         else "integration"
         if record.kind == "integration"
         else "documentation"
@@ -724,7 +801,13 @@ def _iter_scannable_lines(
         if source_kind == "documentation" and stripped.startswith(("```", "~~~")):
             in_fence = not in_fence
             continue
-        yield line_number, line, source_kind, source_kind != "documentation" or in_fence
+        indented_code = line.startswith(("    ", "\t"))
+        yield (
+            line_number,
+            line,
+            source_kind,
+            source_kind != "documentation" or in_fence or indented_code,
+        )
 
 
 def _scan_install_surfaces(record: FileRecord, text: str) -> List[EvidenceRecord]:
@@ -1140,6 +1223,8 @@ def _collect_archetype_hints(result: Inventory) -> None:
 
 def scan_repository(root: Path, max_file_bytes: int = DEFAULT_MAX_FILE_BYTES) -> Inventory:
     """Safely collect a deterministic inventory of *root*."""
+    if max_file_bytes < 0:
+        raise ValueError("read limit must be zero or greater")
     requested_root = Path(root).expanduser()
     try:
         requested_metadata = requested_root.lstat()
@@ -1299,6 +1384,7 @@ def scan_repository(root: Path, max_file_bytes: int = DEFAULT_MAX_FILE_BYTES) ->
                 is_skill = filename.lower() == "skill.md"
                 is_document = is_skill or ext in DOC_EXTS
                 is_script = ext in SCRIPT_EXTS or text.startswith("#!")
+                is_source = ext in SOURCE_EXTS
                 is_manifest = _manifest_category(rel) is not None
                 is_integration = bool(
                     INTEGRATION_DIRS.intersection(
@@ -1310,6 +1396,8 @@ def scan_repository(root: Path, max_file_bytes: int = DEFAULT_MAX_FILE_BYTES) ->
                     if is_skill
                     else "script"
                     if is_script
+                    else "source"
+                    if is_source
                     else "integration"
                     if is_integration
                     else "manifest"
@@ -1330,8 +1418,7 @@ def scan_repository(root: Path, max_file_bytes: int = DEFAULT_MAX_FILE_BYTES) ->
                     name=name,
                     description=description,
                 )
-                if not lossy_decode:
-                    result.scanned_files.append(record)
+                result.scanned_files.append(record)
                 if executable:
                     result.executables.append(record)
                 if is_skill:

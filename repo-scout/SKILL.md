@@ -1,6 +1,6 @@
 ---
 name: repo-scout
-description: "Use when a user shares any tool repository URL — a skill or plugin, a CLI, a library, or a full application — on any Git host, a project website, or a package-registry page, asks “is this worth installing?”, “is this worth adopting?”, or “thoughts?”, requests a comparison, pastes `curl ... | sh`, says “install this” or “set it up for me”, or uses `/plugin install`. Always run Repo Scout before every skill or plugin installation. Provides an evidence-based read-only audit and an INSTALL / CHERRY-PICK / SKIP verdict with file:line evidence."
+description: "Use when a user shares a repository URL on any Git host, project website, package-registry page, or install command for a skill, plugin, CLI, library, extension, or application; asks “is this worth installing?”, “is this worth adopting?”, “thoughts?”, or for a comparison; says “install this” or “set it up for me”; uses `/plugin install`; or pastes `curl ... | sh`. Always run Repo Scout before every skill or plugin installation."
 ---
 
 # Repo Scout
