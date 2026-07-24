@@ -1,6 +1,6 @@
 # 🔍 Repo Scout
 
-**Your CTO for open-source tools. Point it at any repo — a skill pack, a CLI, a library, an extension, or a full application — and it reads the source so you don't have to, then tells you straight: is it worth installing? Install it, take only the good parts, or stay away.**
+**Your CTO for open-source tools. Point it at any repo — a skill pack, a CLI, a library, an extension, or a full application — and it reads the source so you don't have to, then tells you straight: install it or skip it. When it says install, it picks the right scope for you — the whole thing or just the parts that earn their keep.**
 
 [English](#english) · [中文](#中文) · [Landing page](https://wallmage.github.io/repo-scout/)
 
@@ -16,17 +16,16 @@ Every day another thread: *"Top 5 research skills — beat McKinsey!"* or *"This
 
 You paste a link — a repo URL on any git host, a project website, or a package-registry page (npm, PyPI, crates.io, a marketplace listing); it resolves whatever you give it down to the actual source repository. Then it reads what decides the verdict — the entry points, the code that does the real work, enough of the docs to score substance — and comes back with:
 
-1. **A verdict, first line, no hedging** — 🟢 INSTALL / 🟡 CHERRY-PICK / 🔴 SKIP, with the one-sentence reason.
-2. **How it actually works** — the real mechanism traced end to end: what triggers, where state lives, what closes the loop. Not the README's marketing.
-3. **The essential 20%** — in a 50-skill pack, which handful actually does the work; in a sprawling application, which subsystems earn their keep and which are filler with the nouns swapped.
-4. **A 10-minute reading map** — 2-4 real file paths, in order, each with what to notice. Read those; the report covers the rest. Huge repos are triaged into tiers so the verdict still lands in 10-15 minutes, not two hours.
+1. **A verdict you can read aloud** — 🟢 INSTALL or 🔴 SKIP on the first line, then three to five plain sentences: what it is, what you get out of it, and whether it runs on your machine. When only part is worth having, it says what it picked and what it left out.
+2. **Plain answers to the five questions that matter** — what does it do, what's good about it, what makes it special, what do you gain by using it, does it run on your machine. Told from the experience standpoint, no jargon, about half a page.
+3. **One recommended way to run it** — if the project has a point-and-click experience (a page in your browser, a real app), that is what it recommends and sets up. Never a terminal-only version of a graphical product, and never a menu of five install paths.
+4. **At most two "watch out for" items** — only things with real impact: money it costs, accounts you must create, upkeep it demands, or a promise the product doesn't keep. No nitpicks.
 5. **A malice tripwire, nothing more** — security commentary is out of scope: no flaw lists, no hygiene notes. The one exception is clear evidence of deliberate theft or sabotage (an installer that uploads your credentials, a hidden note ordering AI reviewers to praise the repo) — that becomes the verdict itself.
-6. **Installability checks** — platform/runtime compatibility, dependencies, license, global writes, privileges, hooks, and persistence.
-7. **Patterns worth stealing** — what the author did well, so you get sharper at evaluating and building tools.
+6. **The deep dive, on request** — say **deep dive** (or *advanced info*) and you get the developer view: the traced mechanism, which components do the real work, a 10-minute reading map, and patterns worth stealing. It's always researched, and hidden by default so regular readers never see it.
 
 ### The pre-install gate
 
-Ask it to **install** something and it reads first, installs second. Inspection never installs or executes target code. After 🟢 it returns to the installation workflow you authorized; after 🟡 it asks before installing a reduced subset; after 🔴 it explains why with file:line evidence — and the final call is still yours: say install anyway, and it proceeds.
+Ask it to **install** something and it reads first, installs second. Inspection never installs or executes target code. After 🟢 it installs exactly the scope it chose — the whole thing or a named subset — and returns to the installation workflow you authorized; after 🔴 it explains why with file:line evidence — and the final call is still yours: say install anyway, and it proceeds.
 
 Real test — a repo advertising *"50+ skills, 21k stars, replaces a $2M consulting team"*, asked (in Chinese) to install it urgently:
 
@@ -45,12 +44,13 @@ Stars, followers, and README claims never prove implementation quality. Source f
 
 ### Also
 
+- **Freshness with judgment, not just a date.** It reads the category before the calendar: an AI tool untouched for six months is presumed dead, but a five-year-old CSV converter that still installs and runs is fine. A stale date alone never sinks a verdict — it takes a confirming signal like a dead dependency or a retired model pin.
 - **Replies in your language.** Ask in Japanese, get the verdict in Japanese. 中文提问，中文回答.
-- **Recommends the path for your machine.** After the verdict it probes your host read-only — OS, CPU, package manager, installed runtimes — and marks which documented install path is most native for you, with the one-line command to fill any gap.
+- **Recommends the path for your machine.** After the verdict it probes your host read-only — OS, CPU, package manager, installed runtimes — and picks the one way to run it that delivers the full experience in the fewest steps for you, with the one-line command to fill any gap.
 - **Can install it for you, hands-off.** Say yes and it runs the documented setup, narrating each step and installing missing prerequisites with your package manager; where steps are click-only it drives the desktop with computer use when the platform allows, and otherwise hands you a tailored copy-paste manual. It never types your passwords, API keys, or payment details — it stops and tells you what to enter. How far it goes depends on what your platform exposes.
 - **Runs anywhere.** Plain markdown + one stdlib-only Python script. Claude Code, Codex, Kimi Code, OpenCode, Gemini CLI — see [INSTALL.md](INSTALL.md).
 - **Fast by design.** A quick triage sizes the repo and picks a tier, so a verdict lands in under ~10 minutes for regular repos and under ~15 for very large ones. Big trees are split across parallel subagents to speed up the scan. Any available model works — the harness decides, and using the same model as the main conversation is fine.
-- **Never runs the code it judges.** The repo is treated as untrusted data: symlinks are refused, reads are bounded, and anything unread is disclosed in one line.
+- **Never runs the code it judges.** The repo is treated as untrusted data: symlinks are refused, reads are bounded, and anything unread is tracked in the deep-dive notes.
 
 ### Install
 
@@ -97,19 +97,18 @@ Install this for me: https://github.com/someone/viral-skill   ← gets vetted fi
 
 ### Repo Scout 会给你什么
 
-贴上一个链接——可以是任意 git 平台的仓库地址、项目官网，或包管理页面（npm、PyPI、crates.io、各类应用市场页），它都会顺藤摸瓜找到真正的源码仓库。然后只读决定结论的部分：入口文件、真正干活的代码，以及足以判断含金量的文档抽样。没读到的内容会在报告里用一行说明。报告里有这些：
+贴上一个链接——可以是任意 git 平台的仓库地址、项目官网，或包管理页面（npm、PyPI、crates.io、各类应用市场页），它都会顺藤摸瓜找到真正的源码仓库。然后只读决定结论的部分：入口文件、真正干活的代码，以及足以判断含金量的文档抽样。报告里有这些：
 
-1. **开头直接给结论。** 🟢 值得安装、🟡 只挑精华，或 🔴 别装，再用一句话说明理由。
-2. **它实际怎么工作。** 什么会触发它，状态存在哪，整条流程怎么收尾。看的是实现，不是 README 的宣传词。
-3. **真正有用的 20%。** 一个包塞了 50 个技能，报告会区分哪些在干活；一个庞大的应用，也会指出哪些子系统撑得起门面，哪些只是替换名词的填充。
-4. **十分钟阅读路线。** 按顺序列出 2–4 个真实文件路径，并说清每个该看什么。看完这些，剩下的由报告补齐。仓库再大也会先分级处理，让结论在十到十五分钟内给出，而不是耗上两小时。
+1. **结论可以直接读给爸妈听。** 第一行是 🟢 值得安装或 🔴 别装，接着用三到五句大白话讲清：它是什么、装了你能得到什么、你的电脑能不能跑。只装一部分时，会说明选了什么、舍了什么。
+2. **只回答真正重要的五个问题。** 它是干什么的？好在哪？特别在哪？装了有什么好处？我的电脑能跑吗？全部从使用体验出发，不堆术语，篇幅约半页。
+3. **只推荐一种安装方式。** 只要项目有图形界面（浏览器里打开的页面，或真正的应用窗口），推荐的就是那套完整体验——绝不把图形产品装成纯命令行版本，也绝不甩给你五条安装路径的菜单。
+4. **“注意事项”最多两条。** 只讲真正有影响的：要花的钱、要注册的账号、维护负担，或宣传与实际不符。不挑鸡毛蒜皮。
 5. **只拦蓄意作恶，别的不提。** 安全点评不属于报告内容：不列缺陷清单，不写卫生提醒。唯一例外是发现蓄意窃取或破坏的确凿证据（比如安装脚本偷偷上传你的凭据、隐藏注释命令 AI 审查员吹捧仓库）——那会直接成为结论本身。
-6. **安装条件。** 平台与运行环境、依赖、许可证、全局写入、提权，以及 hooks、commands、agents 和持久化行为都会过一遍。
-7. **值得借鉴的做法。** 作者哪里做对了，方便你以后判断和构建工具。
+6. **想看门道，说暗号。** 说一句 **deep dive**（或“高级信息”），就能拿到开发者视角：完整机制、真正干活的组件、十分钟阅读路线和值得借鉴的做法。这些内容每次都会照常研究，只是默认隐藏，不打扰普通读者。
 
 ### 安装前，先让它把关
 
-只要你要求**安装**，它会先读后装。检查时不会安装或运行目标代码。🟢 会回到你已经授权的安装流程。🟡 会先请你确认缩小后的安装范围。🔴 会用 `文件:行号` 说明原因——但最终决定权在你：坚持要装，它就继续装。
+只要你要求**安装**，它会先读后装。检查时不会安装或运行目标代码。🟢 会按它选定的范围安装——整套或某个子集——再回到你已经授权的安装流程。🔴 会用 `文件:行号` 说明原因——但最终决定权在你：坚持要装，它就继续装。
 
 实际测试过一个仓库，它自称有 *“50+ 技能、2.1 万星、替代 200 万美元咨询团队”*，还用中文催着赶紧装：
 
@@ -127,12 +126,13 @@ Install this for me: https://github.com/someone/viral-skill   ← gets vetted fi
 
 ### 还有这些特点
 
+- **看新鲜度，但不只看日期。** 它先看类别再看日历：一个半年没更新的 AI 工具会被判定为已废弃，而一个五年前写的 CSV 转换器只要还能装、还能跑就没问题。单看日期陈旧不足以否定结论，还得有佐证，比如依赖已失效或钉死的模型已停用。
 - **你用哪种语言问，它就用哪种语言答。** 日语提问，日语回答。中文提问，中文回答。
-- **按你的机器推荐安装路径。** 给出结论后，它会只读探测你的主机——操作系统、CPU、包管理器、已装运行时——标出哪条官方安装路径对你最省事，并给出补齐缺失项的一行命令。
+- **按你的机器推荐安装路径。** 给出结论后，它会只读探测你的主机——操作系统、CPU、包管理器、已装运行时——然后只推荐一条路径：完整体验、步骤最少，并给出补齐缺失项的一行命令。
 - **可以放手让它替你安装。** 你说一声，它就照文档执行安装，边做边说，用你的包管理器补上缺失的依赖；遇到只能手动点击的步骤，平台允许时用计算机操作替你完成，否则给你一份量身定制、可复制粘贴的手册。它绝不替你输入密码、API 密钥或支付信息——遇到这类步骤就停下，告诉你该填什么。能走多远取决于你的平台开放了哪些能力。
 - **纯 markdown 加一个只用标准库的 Python 脚本。** Claude Code、Codex、Kimi Code、OpenCode、Gemini CLI 都能用，见 [INSTALL.md](INSTALL.md)。
 - **为速度而设计。** 先快速摸清仓库规模并分级：常规仓库在十分钟内给出结论，超大仓库也控制在十五分钟以内。大仓库会拆分给多个并行子代理同时扫描，加快审读速度。子代理用什么模型由平台自行决定，与主模型相同也完全可以。
-- **不运行正在审查的代码。** 仓库一律当作不可信数据处理：不跟随符号链接、限制读取大小，没读到的内容会用一行说明。
+- **不运行正在审查的代码。** 仓库一律当作不可信数据处理：不跟随符号链接、限制读取大小，没读到的内容会记入深挖笔记，需要时再问。
 
 ### 安装方式
 

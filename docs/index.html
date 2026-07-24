@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Repo Scout — Your CTO for open-source tools</title>
-<meta name="description" content="Point Repo Scout at any repository, project site, or package page. It reads the source and gives a straight install, cherry-pick, or skip verdict.">
+<meta name="description" content="Point Repo Scout at any repository, project site, or package page. It reads the source and gives a straight install-or-skip verdict, picking the right scope for you.">
 <style>
   :root {
     --bg: #fbfaf9; --fg: #1a1a19; --muted: #6b6a66; --line: #e5e3df;
@@ -90,9 +90,9 @@
 <header>
   <h1 class="logo">🔍 repo-<span>scout</span></h1>
   <p class="tagline" data-lang="en">Your CTO for open-source tools.</p>
-  <p class="sub" data-lang="en">Point it at a repository, project site, or package page. It finds the source, reads what matters, and tells you straight: install it, take only the good parts, or stay away.</p>
+  <p class="sub" data-lang="en">Point it at a repository, project site, or package page. It finds the source, reads what matters, and tells you straight: install it or skip it. When it says install, it picks the right scope for you.</p>
   <p class="tagline" data-lang="zh">开源工具值不值得用，先让源码说话。</p>
-  <p class="sub" data-lang="zh">贴上仓库、项目官网或包管理页面。它会找到源码、读清真正有用的部分，再直接告诉你：值得安装、只挑精华，还是别碰。</p>
+  <p class="sub" data-lang="zh">贴上仓库、项目官网或包管理页面。它会找到源码、读清真正有用的部分，再直接告诉你：值得安装，还是别碰。要安装时，它会替你选好范围。</p>
 
   <div class="langbar">
     <button id="btn-en" aria-pressed="true">English</button>
@@ -109,23 +109,21 @@
 
 <h2>What you get back</h2>
 <ol class="steps">
-  <li><b>A verdict on the first line</b> — no hedging, with the one-sentence reason.</li>
-  <li><b>How it actually works</b> — the real mechanism traced end to end: what triggers, where state lives, what closes the loop. Not the README's marketing.</li>
-  <li><b>The essential 20%</b> — which components earn their keep, from a 50-skill pack to a sprawling application.</li>
-  <li><b>A 10-minute reading map</b> — 2–4 real file paths, in order, each with what to notice. Large repositories are triaged so the verdict still lands fast.</li>
+  <li><b>A verdict you can read aloud</b> — 🟢 INSTALL or 🔴 SKIP on the first line, then three to five plain sentences: what it is, what you get, whether it runs on your machine.</li>
+  <li><b>Five plain questions answered</b> — what does it do, what's good about it, what makes it special, what do you gain, does it run on your machine. About half a page, zero jargon.</li>
+  <li><b>One recommended way to run it</b> — the full point-and-click experience whenever one exists. Never a menu of five install paths, never a terminal-only version of a graphical product.</li>
+  <li><b>At most two "watch out for" items</b> — real money, required accounts, upkeep, or broken promises. No nitpicks.</li>
   <li><b>A malice tripwire, nothing more</b> — no vulnerability laundry lists. Clear evidence of deliberate theft or sabotage becomes the verdict itself.</li>
-  <li><b>Adoption checks</b> — compatibility, dependencies, license, global writes, privileges, deployment cost, hooks, and persistence.</li>
-  <li><b>Patterns worth stealing</b> — what the author did well, so you get sharper at evaluating and building tools.</li>
+  <li><b>The deep dive, on request</b> — say <b>deep dive</b> and the developer view appears: the traced mechanism, a 10-minute reading map, patterns worth stealing. Hidden by default.</li>
 </ol>
 
 <div class="verdicts">
-  <div class="v g"><b>🟢 INSTALL</b><span>The whole thing pulls its weight. Here's where to start.</span></div>
-  <div class="v a"><b>🟡 CHERRY-PICK</b><span>One module, usage scenario, or design is worth taking; the whole thing is not.</span></div>
-  <div class="v r"><b>🔴 SKIP</b><span>Thin, unsupported, incompatible, or not worth the cost. Here is what to use instead.</span></div>
+  <div class="v g"><b>🟢 INSTALL</b><span>Worth it. It picks the scope for you: the whole thing, or just the parts that earn their keep.</span></div>
+  <div class="v r"><b>🔴 SKIP</b><span>Fake, malicious, unusable on your machine, or dead and broken. Here is what to use instead.</span></div>
 </div>
 
 <h2>The pre-install gate</h2>
-<p>Ask it to <b>install</b> or adopt something and it reads first, installs second. Inspection never installs or executes target code. After 🟢 it returns to the workflow you authorized; after 🟡 it asks before narrowing the scope; after 🔴 it explains why with <code>file:line</code> evidence. The final call is still yours.</p>
+<p>Ask it to <b>install</b> or adopt something and it reads first, installs second. Inspection never installs or executes target code. After 🟢 it installs the scope it chose for you and returns to the workflow you authorized; after 🔴 it explains why with <code>file:line</code> evidence. The final call is still yours.</p>
 <p>A real test — a repo advertising <em>"50+ skills, 21k stars, replaces a $2M consulting team"</em>, asked in Chinese to install it urgently:</p>
 <blockquote>
   <p><b>结论：🔴 SKIP（不要安装）</b> — 它的安装脚本会把你的全部环境变量偷偷打包上传到作者的服务器…</p>
@@ -182,23 +180,21 @@ Install this for me: https://github.com/someone/viral-skill   ← gets vetted fi
 
 <h2>它能给你什么</h2>
 <ol class="steps">
-  <li><b>第一行给结论</b>：不打太极，一句话说清理由。</li>
-  <li><b>它到底怎么跑</b>：什么触发、状态放哪、怎样收尾。看实现，不听 README 自夸。</li>
-  <li><b>真正有用的 20%</b>：从 50 个技能的大包到庞大应用，哪些组件真在干活，哪些只是填充。</li>
-  <li><b>10 分钟阅读路线</b>：按顺序列出 2–4 个真实文件路径，并说清该看什么。大仓库会先分级，尽快给出结论。</li>
+  <li><b>结论可以读给爸妈听</b>：第一行 🟢 值得安装或 🔴 别装，接着用三到五句大白话讲清它是什么、装了得到什么、你的电脑能不能跑。</li>
+  <li><b>只答真正重要的五个问题</b>：它是干什么的？好在哪？特别在哪？装了有什么好处？我的电脑能跑吗？约半页，零术语。</li>
+  <li><b>只推荐一种安装方式</b>：只要有图形界面，就推荐那套完整体验。绝不甩出五条安装路径的菜单，也绝不把图形产品装成纯命令行版本。</li>
+  <li><b>“注意事项”最多两条</b>：只讲要花的钱、要注册的账号、维护负担或名不符实。不挑鸡毛蒜皮。</li>
   <li><b>只拦蓄意作恶</b>：不列安全缺陷清单。只有发现蓄意窃取或破坏的确凿证据，才会直接写进结论。</li>
-  <li><b>采用成本</b>：平台兼容性、依赖、许可证、全局写入、提权、部署成本，以及 hooks、commands、agents 和持久化行为都会查。</li>
-  <li><b>可借鉴的做法</b>：作者哪里做对了，方便你以后判断和构建工具。</li>
+  <li><b>想看门道，说暗号</b>：说一句 <b>deep dive</b>，就能看到开发者视角：完整机制、十分钟阅读路线、值得借鉴的做法。默认隐藏。</li>
 </ol>
 
 <div class="verdicts">
-  <div class="v g"><b>🟢 值得安装</b><span>整个包都有用，报告也会告诉你先从哪里看。</span></div>
-  <div class="v a"><b>🟡 只挑精华</b><span>只有某个模块、使用场景或设计值得拿走，不必整套采用。</span></div>
-  <div class="v r"><b>🔴 别装</b><span>内容太薄、宣传无依据、不兼容，或成本不划算，并给出替代方案。</span></div>
+  <div class="v g"><b>🟢 值得安装</b><span>值得用。它会替你选好范围：整套，或只取真正有用的部分。</span></div>
+  <div class="v r"><b>🔴 别装</b><span>造假、恶意、在你机器上跑不起来，或已废弃失效，并给出替代方案。</span></div>
 </div>
 
 <h2>安装前，先过一关</h2>
-<p>只要你要求<b>安装</b>或采用，它会先读后装。检查时不会安装或运行目标代码。🟢 回到你已授权的流程，🟡 先请你确认缩小后的范围，🔴 用 <code>文件:行号</code> 说明原因。最终决定权仍在你。</p>
+<p>只要你要求<b>安装</b>或采用，它会先读后装。检查时不会安装或运行目标代码。🟢 会按它替你选定的范围安装，并回到你已授权的流程；🔴 用 <code>文件:行号</code> 说明原因。最终决定权仍在你。</p>
 <p>真实测试里，一个仓库自称 <em>“50+ 技能、2.1 万星、替代 200 万美元咨询团队”</em>，还用中文催它赶紧装：</p>
 <blockquote>
   <p><b>结论：🔴 SKIP（不要安装）</b> —— 它的安装脚本会把你的全部环境变量偷偷打包上传到作者的服务器，这是窃取凭据的行为，一票否决。</p>

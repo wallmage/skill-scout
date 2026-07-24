@@ -1,89 +1,64 @@
 # Scout Report Template
 
-Use this structure. Keep a single-target report near one page and a large-repository report under two pages. Write in the user's language; preserve verdict icons, source paths, commit hashes, content hashes, dependency names, and license identifiers.
+Use this structure. Keep the whole report near half a page for a single target and under one page for a very large repository. Cut detail before cutting clarity: every dropped sentence should be one the reader would have skimmed anyway.
 
-The report contains no security commentary — no flaw lists, no hygiene notes, no vulnerability caveats. The single exception is clear evidence of deliberate malice, which becomes the verdict's decisive reason on line one.
+Write for a reader with no technical background — someone's mom or dad, busy, deciding whether this thing is worth their time. Every sentence must make sense to that reader on first pass. Write in the user's language and translate everything, including the verdict words; only the 🟢/🔴 icons, web links, and file paths stay as they are.
+
+Plain-words rules for the whole report:
+
+- No unexplained technical terms. When a real name is unavoidable (a program they must have, an account they must create), say what it is in everyday words in the same sentence.
+- Describe benefits and drawbacks from the experience standpoint, never the technology standpoint: not "a self-hosted web service with persistent state" but "it runs on your own computer, remembers your past work, and your data never leaves your machine."
+- No audit bookkeeping ever appears in the report: no commit hashes, resolution chains, snapshot or worktree state, symlink notes, file or line counts, and no lists of what was or wasn't read. All of that goes to the deep-dive notes.
+- No numeric scores and no rubric axis names — the rubric is reasoning, never output.
+
+The report contains no security commentary. The single exception is clear evidence of deliberate malice, which becomes the verdict's decisive reason on line one.
 
 ---
 
-# Scout Report: <repository>
+# Scout Report: <name>
 
-**Verdict: 🟢 INSTALL | 🟡 CHERRY-PICK | 🔴 SKIP** — <one sentence naming the decisive reason>
+**Verdict: 🟢 INSTALL | 🔴 SKIP** — <one sentence naming the decisive reason>
 
-> <Two or three lines: what it really is, its active ingredient or fatal weakness, and the action to take.>
+The verdict block is three to five short sentences in total, plain enough to read aloud. After the first line, cover: what this thing is in everyday words; the single biggest thing the user gets out of it (or, on 🔴, why it is not worth their time and what to use instead); whether it runs on their machine; and, when only part of it is worth having, one sentence saying what part is being set up and what is left out — a decision already made, never a question.
 
-## How to run it
+Verdict-line examples: `🟢 INSTALL — it really does what it promises, and it runs on your Mac.` · `🔴 SKIP — the author has abandoned this (no real updates in 8 months, and it depends on a service that no longer exists); use <alternative> instead.`
 
-Answer "how do I run this?" before the audit detail, written for a reader who does not know the tooling. Every report gets this section. No technology is treated as scary, privileged, or mandatory: each documented path is one honest peer line. Derive it from the repo's own install docs and files (verified paths, not marketing); describe, do not test-run. If the project's own docs are unclear, say so explicitly — that is report-worthy evidence about the project.
+## What it is
 
-- **What kind of thing it is, in plain words** — one sentence naming the shape: a skill you copy into Claude Code/Codex; a CLI you install; a library for your code; a desktop app; or a self-hosted application you run as its own service (its own product with a web page you open in a browser, not something that lives inside another tool).
-- **Where it runs** — supported platforms/hosts, stated concretely (macOS/Linux/Windows; arm64/x86_64). Distinguish "officially supported" from "evidenced by files."
-- **The paths** — list *all* documented install paths as neutral peers, one line each: `<path> — needs <prereqs>; suits <who>`. Order them by what upstream documents as primary, then by simplicity — never by the reviewer's tooling preferences. Gloss a jargon term once, in one line, the first time a path uses it ("Docker — an app that runs the whole stack in an isolated box so you install nothing else"), then move on; give no single technology extended treatment.
-  - **On your machine** — which documented path this user is closest to for the detected environment (§Detect the environment): what is already satisfied, what is missing, and the one-line command to get each missing piece with their detected package manager (`brew install …`, `apt install …`). "Closest" means fewest new installs and least new infrastructure. If probing was impossible (no shell), say so and leave the paths un-tailored.
-- **What you must have first** — accounts and API keys required before anything works.
+Two or three sentences: what it does in everyday words, anchored to something familiar when that helps ("like the research mode in ChatGPT, but it runs on your own computer and shows its sources"). Then how it works at a high level in at most two plain sentences, hiding the machinery ("you type a question; it goes off and reads the web for a while, then hands you a written report"). No component names, no data-flow chains, no diagrams.
 
-## Source and audit coverage
+## Why you'd want it
 
-- Source: `<URL or local path>`
-- Resolved from: `<input link → repository, or “input was the repository”>`
-- Revision: `<commit SHA, release, or “not available”>`
-- Local state: `<clean/dirty/not applicable>`
-- Not read: `<one line — unread or sampled areas, or “nothing material”>`
+Two to four short bullets: what gets easier, faster, better, or cheaper, and what makes this one special against the obvious alternative. Experience first, always — "you can close the laptop and it keeps working; the answer is waiting when you come back," never "asynchronous task persistence."
 
-## What it actually is
+## Watch out for
 
-One paragraph comparing the claim with the contents. State the archetype in plain words ("a self-hosted research-agent application", "a prompt pack", "a CLI"), give honest scale, and identify whether this is a system, a recipe, or a prompt collection.
+At most two bullets, and only things that would genuinely change the user's week: real money it costs, accounts they must create, heavy upkeep, a rough or confusing experience, a core feature that doesn't match the marketing. Cosmetic issues, minor documentation mistakes, and normal signs of an actively developed project are never worth the reader's time. When nothing meets that bar, omit the section.
 
-## How it works — the mechanism
+## On your machine
 
-Trace one concrete invocation from trigger to output: state, handoffs, scripts, verification, and completion. For an application this is one end-to-end run (input → orchestration → output); for a library, one public API call to its effect. Use a small diagram only when branches or loops make prose harder to follow.
+Answer "will this run for me, and how?" with one recommended way — never a menu.
 
-## The active ingredients
+- Whether it runs on this computer: what is already in place, what is missing, and the one-line command or step to get each missing piece with the user's package manager. If probing was impossible (no shell), say so plainly and keep the recommendation generic.
+- Recommend exactly one way to run it, chosen by the experience rule and the effort rule (SKILL §Detect the environment): the full point-and-click experience whenever one exists, reached in the fewest user steps. When nothing graphical exists, say plainly: "there is no app window — you use this by typing commands."
+- If running it takes several parts working at once, that is plumbing the user should never see: the plan is one start command or start-on-login, ending with one address to open or one icon to click — never terminal windows to keep open.
+- Other documented setups get at most one sentence — "there are other ways to install it meant for developers; you don't need them" — with no list.
+- What you must have first: accounts or keys in plain words, and what they cost when the project says.
+- End with what success looks like: "when it's ready, a page opens in your browser at <address> and you'll see <what>."
 
-For a pack or a multi-component target, use:
+Derive everything from the project's own install docs and files; describe, never execute during the audit. If the project's own instructions are unclear or wrong, say so in plain words — that is honest, report-worthy evidence.
 
-| Skill/component | What it does | Why it materially changes the result |
-|---|---|---|
+Close the report with one line, `Source: <link>`, and the single assisted-install offer: whether you should set it all up, naming the one recommended way (SKILL §Offer assisted installation). Ask once; no offer after an unapproved 🔴.
 
-For a single-purpose target, name the one or two components or subsystems that survive the removal test.
+## The deep dive — researched, never volunteered
 
-## The filler
+The sections above are the entire visible report. The audit still produces the developer-level material; keep it ready and print none of it. When the user says **"deep dive"** — or "advanced info", "deeper info", or otherwise clearly asks for developer-level detail — reply with it in full:
 
-Name duplicated, generic, decorative, or misleading components. If none exists, say so briefly.
+- The mechanism traced properly: one concrete run from trigger to output — state, handoffs, verification, completion.
+- The active ingredients and the filler: which components survive the removal test, which are decoration.
+- A 10-minute reading map: 2–4 real file paths in reading order, each with what to notice.
+- Worth stealing: 2–4 reusable design patterns.
+- Compatibility and ownership detail: platform constraints, dependencies, license, install footprint, maintenance evidence, context cost.
+- Audit bookkeeping: exact revision, the resolution chain, worktree or content-hash state, and what was left unread or sampled.
 
-## Best fit
-
-1–3 bullets: the key usage scenarios where this target earns its keep, and who should not bother.
-
-- <Reach for it when …>
-- <Skip it if …>
-
-## Compatibility and ownership
-
-| Check | Evidence | Consequence |
-|---|---|---|
-| Platform/runtime | <declared and observed constraints> | <works, mismatch, or unverified> |
-| Dependencies | <direct, build, optional, external services> | <cost and risk> |
-| License | <file/expression or missing> | <allowed use or blocker> |
-| Install/deploy footprint | <global writes, privilege, hooks, persistence, deployment complexity, required keys/services, infra> | <what it costs to adopt and keep> |
-| Maintenance | <history, releases, issues> | <healthy, stale, or unverified> |
-| Context footprint | <descriptions and loaded content> | <trigger/cost impact> |
-
-## 10-minute reading map
-
-List 2–4 real paths in reading order; estimates must total about ten minutes. For an application, point at orchestration and config files rather than SKILL.mds.
-
-1. `path/to/file` (4 min) — <what to notice>
-2. `path/to/file` (3 min) — <what to notice>
-
-Everything not listed is covered by the report.
-
-## Worth stealing
-
-Name 2–4 reusable design patterns. Omit only when there is genuinely nothing useful.
-
-## Bottom line
-
-State the concrete action. For CHERRY-PICK, name the exact subset and ask for approval before installation. For SKIP, name a better alternative or what evidence would change the verdict.
-
-After a 🟢 verdict — or a 🟡 or overridden verdict the user has approved — close with one offer: whether you should install and set it up for them, naming the recommended **On your machine** path. Ask once; make no offer after an unapproved 🔴.
+Never advertise that this level exists; the reader who needs it knows the words.

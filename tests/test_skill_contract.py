@@ -103,9 +103,101 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("resume the user's authorized installation workflow", self.skill)
         self.assertRegex(
             self.skill,
-            r"(?s)CHERRY-PICK.*ask the user to approve the reduced installation scope",
+            r"(?s)🟢 \*\*INSTALL\*\*.*resume the user's authorized installation "
+            r"workflow for that chosen scope",
         )
         self.assertNotIn("Never install the skill, never register it", self.skill)
+
+    def test_verdict_is_binary_install_or_skip(self):
+        shipped = [
+            path
+            for path in SKILL_DIR.rglob("*")
+            if path.is_file() and path.suffix.lower() in {".md", ".py", ".yaml"}
+        ]
+        for path in shipped:
+            self.assertNotIn(
+                "CHERRY-PICK",
+                path.read_text(),
+                f"CHERRY-PICK found in {path.relative_to(SKILL_DIR)}",
+            )
+        # Binary verdict named across the shipped instructions.
+        self.assertIn("🟢 INSTALL or 🔴 SKIP", self.skill)
+        self.assertIn("Never return a middle verdict", self.skill)
+        self.assertIn("🟢 INSTALL or 🔴 SKIP, never a middle option", self.rubric)
+        self.assertIn("**Verdict: 🟢 INSTALL | 🔴 SKIP**", self.report)
+        # Partial-value cases get a chosen-scope sentence the skill decides itself.
+        self.assertIn("what part is being set up and what is left out", self.report)
+        self.assertIn("never present the reader a menu", self.skill)
+        # No-hedging rule and tiebreaker are present on the verdict line.
+        self.assertIn(
+            'Hedging on the verdict line ("probably", "it depends") is prohibited',
+            self.skill,
+        )
+        self.assertIn(
+            "would a busy non-technical user be glad the recommended scope got installed",
+            self.skill,
+        )
+
+    def test_skip_fires_only_on_the_seven_closed_triggers(self):
+        for source_name, source in (("SKILL.md", self.skill), ("rubric", self.rubric)):
+            for trigger in (
+                "Fake",
+                "Malicious or suspicious",
+                "Hazardous to the user",
+                "Broken as shipped",
+                "Abandoned and obsolete",
+                "Unusable for this user",
+                "Superseded",
+            ):
+                self.assertIn(trigger, source, f"{trigger} missing from {source_name}")
+        # The SKIP list is closed to exactly those seven triggers.
+        self.assertIn(
+            "fires only when at least one of these seven is evidenced", self.skill
+        )
+        self.assertIn("nothing else ever produces a red", self.skill)
+        self.assertIn("fired only by one of the seven triggers", self.skill)
+        self.assertRegex(
+            self.rubric,
+            r"(?s)🔴 \*\*SKIP:\*\* Fires only when at least one of these seven is evidenced",
+        )
+        # Abandoned verdict must say the author abandoned it; superseded names the successor.
+        self.assertIn(
+            "say plainly that the author has abandoned the project", self.skill
+        )
+        self.assertIn("the successor named as the alternative", self.skill)
+        self.assertIn("the author has abandoned the project", self.rubric)
+        # A broken individual path is never a SKIP.
+        self.assertIn(
+            "A lagging or broken *individual* install path is never a SKIP", self.skill
+        )
+        # Default-green posture: no "green, but…" hedging.
+        self.assertIn('no "green, but…" framing', self.skill)
+        self.assertIn("never red on an unverified prior", self.rubric)
+        # Popularity principle intact both directions.
+        self.assertIn("Popularity proves nothing either way", self.skill)
+        self.assertIn("still goes red if a tripwire fires", self.skill)
+
+    def test_freshness_is_category_aware_with_prior_plus_confirmation(self):
+        # Category thresholds: AI 3mo/6mo and self-contained never-by-date-alone.
+        for phrase in ("> 3 months", "> 6 months", "never by date alone"):
+            self.assertIn(phrase, self.skill, f"{phrase} missing from SKILL.md")
+            self.assertIn(phrase, self.rubric, f"{phrase} missing from rubric")
+        # Prior-plus-confirmation: calendar alone never reds; needs a confirming signal.
+        self.assertIn(
+            "requires *both* a category threshold exceeded *and* at least one "
+            "confirming signal",
+            self.skill,
+        )
+        self.assertIn(
+            "requires both the threshold exceeded and at least one confirming signal",
+            self.rubric,
+        )
+        self.assertIn('"no longer maintained; works today"', self.skill)
+        self.assertIn("never red on an unverified prior", self.skill)
+        # AI-coupled example named in the README freshness bullet, both languages.
+        readme = (ROOT / "README.md").read_text()
+        self.assertIn("presumed dead", readme)
+        self.assertIn("已废弃", readme)
 
     def test_subagents_have_no_model_tier_requirement(self):
         self.assertIn(
@@ -137,8 +229,6 @@ class SkillContractTests(unittest.TestCase):
         self.assertNotIn("appendix", self.skill.lower())
 
     def test_report_is_merit_focused_with_malice_only_tripwire(self):
-        self.assertIn("## Source and audit coverage", self.report)
-        self.assertIn("## Compatibility and ownership", self.report)
         self.assertIn("no security commentary", self.report)
         self.assertIn("deliberate malice", self.report)
         self.assertNotIn("## Safety", self.report)
@@ -148,6 +238,87 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("Never report unintended flaws", self.skill)
         self.assertIn("never reported", self.rubric)
         self.assertIn("The user can override any verdict", self.rubric)
+
+    def test_report_is_plain_language_for_nontechnical_readers(self):
+        # The visible report answers five plain questions in four sections.
+        for heading in (
+            "## What it is",
+            "## Why you'd want it",
+            "## Watch out for",
+            "## On your machine",
+        ):
+            self.assertIn(heading, self.report)
+        # Audit bookkeeping and developer tables are gone from the visible report.
+        for heading in (
+            "## Source and audit coverage",
+            "## Compatibility and ownership",
+            "## How it works — the mechanism",
+            "## The active ingredients",
+            "## The filler",
+            "## Best fit",
+            "## 10-minute reading map",
+            "## Worth stealing",
+            "## Bottom line",
+        ):
+            self.assertNotIn(heading, self.report)
+        # Half the old length, verdict as a short plain block, few shortcomings.
+        self.assertIn("half a page", self.report)
+        self.assertIn("three to five short sentences", self.report)
+        self.assertIn("At most two bullets", self.report)
+        self.assertIn("experience standpoint", self.report)
+        # Rubric scores never reach the user.
+        self.assertIn("No numeric scores and no rubric axis names", self.report)
+        self.assertIn("internal reasoning only", self.rubric)
+        self.assertIn("Write for moms and dads", self.skill)
+        self.assertIn(
+            "translate everything, including the verdict words", self.skill
+        )
+
+    def test_deep_dive_material_is_hidden_until_asked(self):
+        self.assertIn("## The deep dive", self.report)
+        self.assertIn('"deep dive"', self.report)
+        self.assertIn("advanced info", self.report)
+        self.assertIn("deeper info", self.report)
+        # The developer material is still researched, just not volunteered.
+        self.assertIn("10-minute reading map", self.report)
+        self.assertIn("Worth stealing", self.report)
+        self.assertIn("Never advertise that this level exists", self.report)
+        self.assertIn("never advertise that it exists", self.skill)
+        self.assertIn("deep-dive notes", self.skill)
+
+    def test_recommendation_is_gui_first_single_path(self):
+        self.assertIn("experience rule", self.skill)
+        self.assertIn("effort rule", self.skill)
+        self.assertIn(
+            "a terminal-only variant is recommended only when nothing graphical exists",
+            self.skill,
+        )
+        self.assertIn("fewest steps and decisions", self.skill)
+        self.assertIn(
+            "never justifies a cut-down version of the product", self.skill
+        )
+        for surface in (self.skill, self.report):
+            self.assertNotIn("fewest new installs", surface)
+            self.assertNotIn("neutral peers", surface)
+        self.assertIn("one recommended way — never a menu", self.report)
+        self.assertIn("you don't need them", self.report)
+
+    def test_assisted_install_matches_report_and_verifies_like_a_user(self):
+        self.assertIn(
+            "uses exactly the path named in **On your machine**", self.skill
+        )
+        self.assertIn("never switch silently", self.skill)
+        self.assertIn(
+            "never leave the user with terminal windows to keep open", self.skill
+        )
+        self.assertIn("Verify like the user would", self.skill)
+        self.assertIn("never just a command echoing a version", self.skill)
+        self.assertIn(
+            "leading with the one thing the user should do", self.skill
+        )
+        self.assertIn(
+            "never vague verbs like \"patching things up\"", self.skill
+        )
 
     def test_environment_detection_probes_read_only(self):
         self.assertIn("Detect the environment (read-only)", self.skill)

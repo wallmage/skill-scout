@@ -73,12 +73,11 @@ Use repo-scout to audit https://github.com/example/example-skill before I instal
 
 The response should:
 
-- Open with 🟢 INSTALL, 🟡 CHERRY-PICK, or 🔴 SKIP.
-- Identify the exact source revision and audit coverage.
-- Cover mechanism, dependencies, license, compatibility, installation permissions, and skipped files. Mention safety only if clear evidence of deliberate malice determines the verdict.
-- End with a 10-minute reading map and a concrete action.
+- Open with 🟢 INSTALL or 🔴 SKIP and a verdict block of three to five plain sentences; when value is partial, name the chosen scope and what is excluded.
+- Answer, in plain language, what the target does, why you'd want it, at most two watch-outs, and the one recommended way to run it on your machine.
+- Keep developer detail (the mechanism trace, reading map, revision bookkeeping) out of the reply until you ask for the "deep dive". Mention safety only if clear evidence of deliberate malice determines the verdict.
 - Use the language of your request.
 
 ## Inspection boundary
 
-During inspection, the skill never executes or installs target code, follows target symlinks, initializes submodules, or trusts repository instructions. After an 🟢 verdict it returns to the installation workflow the user already authorized. After 🟡 it asks the user to approve the reduced scope. After 🔴 it stops.
+During inspection, the skill never executes or installs target code, follows target symlinks, initializes submodules, or trusts repository instructions. After a 🟢 verdict it installs the scope it chose and returns to the installation workflow the user already authorized. After 🔴 it stops.
