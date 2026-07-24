@@ -1,5 +1,8 @@
 from pathlib import Path
+import os
 import re
+import subprocess
+import tempfile
 import unittest
 
 
@@ -66,6 +69,207 @@ class SkillContractTests(unittest.TestCase):
             self.assertNotIn(".codex/skills", surface)
         self.assertIn("<project>/.agents/skills/repo-scout/SKILL.md", install)
 
+    def test_install_commands_are_repeatable(self):
+        install = (ROOT / "INSTALL.md").read_text()
+        readme = (ROOT / "README.md").read_text()
+        landing = (ROOT / "docs" / "index.html").read_text()
+
+        for destination in (
+            "~/.claude/skills/repo-scout",
+            "~/.agents/skills/repo-scout",
+        ):
+            parent = destination.rsplit("/", 1)[0]
+            for surface in (install, readme, landing):
+                self.assertIn(f"mkdir -p {parent}", surface)
+                self.assertIn(f"rm -rf {destination}", surface)
+                self.assertIn(f'mv "$install_stage" {destination}', surface)
+
+        self.assertIn(
+            "mkdir -p <project>/.agents/skills",
+            install,
+        )
+        self.assertIn(
+            "rm -rf <project>/.agents/skills/repo-scout",
+            install,
+        )
+        for surface in (install, readme, landing):
+            self.assertIn('install_stage="$(mktemp -d ', surface)
+            self.assertNotRegex(
+                surface,
+                r"cp -R repo-scout(?:/repo-scout)?/\. "
+                r"(?:~/|<project>/).*?/repo-scout/",
+            )
+        self.assertIn(
+            """trap 'rm -rf "$install_stage"' 0 1 2 15""",
+            install,
+        )
+        self.assertEqual(
+            3,
+            install.count(
+                'git archive HEAD repo-scout | tar -x -C "$install_stage" '
+                "--strip-components=1"
+            ),
+        )
+        for surface in (readme, landing):
+            self.assertIn('source_stage="$(mktemp -d ', surface)
+            self.assertIn(
+                """trap 'rm -rf "$source_stage" "$install_stage"' 0 1 2 15""",
+                surface,
+            )
+        self.assertEqual(3, install.count("```bash\n(\nset -e"))
+        self.assertEqual(4, readme.count("```bash\n(\nset -e"))
+        self.assertEqual(4, landing.count("<pre><code>(\nset -e"))
+        self.assertNotIn("```bash\nset -e", install)
+        self.assertNotIn("```bash\nset -e", readme)
+        self.assertNotIn("<pre><code>set -e", landing)
+
+    def test_codex_quick_start_installs_and_updates_from_the_remote(self):
+        readme = (ROOT / "README.md").read_text()
+        codex_block = re.search(
+            r"\*\*OpenAI Codex\*\*\n```bash\n(.*?)\n```",
+            readme,
+            re.DOTALL,
+        )
+        self.assertIsNotNone(codex_block)
+
+        with tempfile.TemporaryDirectory() as root_dir:
+            root = Path(root_dir)
+            source = root / "source"
+            remote = root / "remote.git"
+            install_cwd = root / "install"
+            fake_home = root / "home"
+            source_skill = source / "repo-scout" / "SKILL.md"
+            source_skill.parent.mkdir(parents=True)
+            install_cwd.mkdir()
+            fake_home.mkdir()
+
+            self._run_git("init", "-b", "main", str(source), cwd=root)
+            self._run_git(
+                "-C",
+                str(source),
+                "config",
+                "user.email",
+                "tests@example.invalid",
+                cwd=root,
+            )
+            self._run_git(
+                "-C",
+                str(source),
+                "config",
+                "user.name",
+                "Repo Scout Tests",
+                cwd=root,
+            )
+            source_skill.write_text("version 1\n")
+            self._run_git("-C", str(source), "add", ".", cwd=root)
+            self._run_git(
+                "-C",
+                str(source),
+                "commit",
+                "-m",
+                "version 1",
+                cwd=root,
+            )
+            self._run_git("clone", "--bare", str(source), str(remote), cwd=root)
+            self._run_git(
+                "-C",
+                str(source),
+                "remote",
+                "add",
+                "origin",
+                str(remote),
+                cwd=root,
+            )
+
+            script = codex_block.group(1).replace(
+                "https://github.com/wallmage/repo-scout.git",
+                str(remote),
+            )
+            stale_checkout = install_cwd / "repo-scout"
+            self._run_git("clone", str(remote), str(stale_checkout), cwd=root)
+            (
+                stale_checkout
+                / "repo-scout"
+                / "obsolete-from-checkout.txt"
+            ).write_text("must never be installed\n")
+            shell_environment = {
+                "HOME": str(fake_home),
+                "PATH": os.environ["PATH"],
+            }
+
+            first_install = subprocess.run(
+                ["/bin/sh", "-c", f"{script}\nfalse\necho survived\n"],
+                cwd=install_cwd,
+                env=shell_environment,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            self.assertIn("survived", first_install.stdout)
+            installed_skill = (
+                fake_home / ".agents" / "skills" / "repo-scout" / "SKILL.md"
+            )
+            self.assertEqual("version 1\n", installed_skill.read_text())
+            installed_root = installed_skill.parent
+            legacy_nested_skill = installed_root / "repo-scout" / "SKILL.md"
+            legacy_nested_skill.parent.mkdir()
+            legacy_nested_skill.write_text("legacy nested version\n")
+            (installed_root / "obsolete.txt").write_text("must be removed\n")
+
+            source_skill.write_text("version 2\n")
+            self._run_git("-C", str(source), "add", ".", cwd=root)
+            self._run_git(
+                "-C",
+                str(source),
+                "commit",
+                "-m",
+                "version 2",
+                cwd=root,
+            )
+            self._run_git(
+                "-C",
+                str(source),
+                "push",
+                "origin",
+                "main",
+                cwd=root,
+            )
+
+            subprocess.run(
+                ["/bin/sh", "-c", script],
+                cwd=install_cwd,
+                env=shell_environment,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+
+            self.assertEqual("version 2\n", installed_skill.read_text())
+            self.assertEqual(
+                [installed_skill],
+                list((fake_home / ".agents" / "skills").rglob("SKILL.md")),
+            )
+            checkout_root = source / "repo-scout"
+            installed_entries = {
+                path.relative_to(installed_root)
+                for path in installed_root.rglob("*")
+            }
+            checkout_entries = {
+                path.relative_to(checkout_root)
+                for path in checkout_root.rglob("*")
+            }
+            self.assertEqual(checkout_entries, installed_entries)
+
+    @staticmethod
+    def _run_git(*arguments, cwd):
+        subprocess.run(
+            ["git", *arguments],
+            cwd=cwd,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
     def test_install_verification_respects_malice_only_reporting(self):
         install = (ROOT / "INSTALL.md").read_text()
 
@@ -107,6 +311,27 @@ class SkillContractTests(unittest.TestCase):
             r"workflow for that chosen scope",
         )
         self.assertNotIn("Never install the skill, never register it", self.skill)
+
+    def test_audit_questions_never_authorize_installation(self):
+        self.assertIn(
+            '"is this worth installing?" and "is this worth adopting?" are '
+            "audit-only questions",
+            self.skill,
+        )
+        self.assertIn(
+            "Only an imperative request to install, set up, or adopt the target "
+            "authorizes changing the user's machine",
+            self.skill,
+        )
+        self.assertNotIn("asked to install or adopt the target", self.skill)
+        self.assertIn(
+            "If the user gave an imperative install, setup, or adoption request",
+            self.report,
+        )
+        self.assertNotIn(
+            "If the user already asked to install",
+            self.report,
+        )
 
     def test_verdict_is_binary_install_or_skip(self):
         shipped = [
@@ -209,10 +434,29 @@ class SkillContractTests(unittest.TestCase):
             self.assertNotIn(phrase, self.skill)
 
     def test_local_snapshot_identity_and_self_audit_are_defined(self):
-        self.assertIn("record whether the worktree is dirty", self.skill)
+        self.assertIn("whether the worktree is dirty", self.skill)
         self.assertIn("content hash", self.skill)
         self.assertIn("previously trusted copy of the scanner", self.skill)
         self.assertIn("manual inventory fallback", self.skill)
+
+    def test_installation_is_bound_to_the_audited_snapshot(self):
+        for phrase in (
+            "Install only the exact snapshot that produced the verdict",
+            "Every Git source",
+            "recorded commit SHA is source identity, not the installation payload",
+            "content-addressed snapshot made from the exact source bytes before "
+            "inspection",
+            "clean or dirty",
+            "never substitute HEAD or a recorded commit SHA for the frozen bytes",
+            "execute the saved bytes whose content hash was audited",
+            "never re-fetch and execute a moving branch, tag, package label, or URL",
+            "stop installation and audit the changed content before proceeding",
+        ):
+            self.assertIn(phrase, self.skill)
+        self.assertRegex(
+            self.skill,
+            r"(?s)Mode 1 — run the documented commands.*exact audited snapshot",
+        )
 
     def test_workflow_focuses_on_mechanism_and_merit(self):
         for phrase in (
@@ -330,14 +574,33 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("`command -v x` / `x --version`-style checks only", self.skill)
         self.assertIn("present the documented paths un-tailored", self.skill)
 
-    def test_install_offer_is_ask_once_and_per_session(self):
+    def test_install_offer_reuses_existing_approval(self):
         self.assertIn("Offer assisted installation", self.skill)
         self.assertIn("This extends the pre-install gate", self.skill)
-        self.assertIn("end the report with one question", self.skill)
-        self.assertIn("make no offer after an unapproved", self.skill)
+        for surface in (self.skill, self.report):
+            self.assertIn("audit only", surface)
+            self.assertIn("do not ask again", surface)
         self.assertIn(
-            "the user's explicit yes is required and is per-session", self.skill
+            "If the user gave an imperative install, setup, or adoption request",
+            self.skill,
         )
+        self.assertIn(
+            "that original instruction is the per-session approval",
+            self.skill,
+        )
+        self.assertIn(
+            "Approval for this session is either the user's original explicit "
+            "install request or the single yes to that post-audit offer",
+            self.skill,
+        )
+        self.assertIn("On the approval defined above", self.skill)
+        self.assertIn(
+            "The approval defined above is required and is per-session",
+            self.skill,
+        )
+        self.assertNotIn("On the user's yes", self.skill)
+        self.assertNotIn("the user's explicit yes is required", self.skill)
+        self.assertIn("make no offer after an unapproved", self.skill)
 
     def test_assisted_install_never_handles_secrets(self):
         self.assertIn(

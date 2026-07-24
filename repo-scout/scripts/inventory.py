@@ -357,6 +357,15 @@ def _append_unique(collection: List[Any], item: Any) -> None:
         collection.append(item)
 
 
+def _record_manifest_parse_failure(
+    result: Inventory, path: str, reason: str
+) -> None:
+    _append_unique(
+        result.skipped,
+        SkippedRecord(path, f"manifest metadata parse failed: {reason}"),
+    )
+
+
 def _is_link_like(metadata: os.stat_result) -> bool:
     """Return whether metadata represents a link or Windows reparse point."""
     return stat.S_ISLNK(metadata.st_mode) or bool(
@@ -512,9 +521,11 @@ def _dependency_from_requirement(
 def _parse_package_json(text: str, rel: str, result: Inventory) -> None:
     try:
         data = json.loads(text)
-    except (json.JSONDecodeError, TypeError):
+    except (ValueError, TypeError):
+        _record_manifest_parse_failure(result, rel, "invalid JSON object")
         return
     if not isinstance(data, dict):
+        _record_manifest_parse_failure(result, rel, "invalid JSON object")
         return
 
     scripts = data.get("scripts", {})
@@ -629,18 +640,32 @@ def _fallback_pyproject(text: str) -> Dict[str, Any]:
     return {"project": project}
 
 
-def _load_toml(text: str, fallback_pyproject: bool = False) -> Dict[str, Any]:
+def _load_toml(
+    text: str, fallback_pyproject: bool = False
+) -> Optional[Dict[str, Any]]:
     if tomllib is not None:
         try:
             data = tomllib.loads(text)
             return data if isinstance(data, dict) else {}
         except Exception:  # malformed untrusted input; report manifest without parsing
-            return {}
+            return None
     return _fallback_pyproject(text) if fallback_pyproject else {}
 
 
 def _parse_pyproject(text: str, rel: str, result: Inventory) -> None:
+    using_fallback = tomllib is None
     data = _load_toml(text, fallback_pyproject=True)
+    if data is None:
+        _record_manifest_parse_failure(result, rel, "invalid TOML")
+        return
+    if using_fallback:
+        _append_unique(
+            result.skipped,
+            SkippedRecord(
+                rel,
+                "manifest metadata partially parsed: tomllib unavailable",
+            ),
+        )
     project = data.get("project", {}) if isinstance(data, dict) else {}
     if not isinstance(project, dict):
         project = {}
@@ -726,7 +751,19 @@ def _parse_go_mod(text: str, rel: str, result: Inventory) -> None:
 
 
 def _parse_cargo_toml(text: str, rel: str, result: Inventory) -> None:
+    if tomllib is None:
+        _append_unique(
+            result.skipped,
+            SkippedRecord(
+                rel,
+                "manifest metadata parse unavailable: tomllib unavailable",
+            ),
+        )
+        return
     data = _load_toml(text)
+    if data is None:
+        _record_manifest_parse_failure(result, rel, "invalid TOML")
+        return
     package = data.get("package", {}) if isinstance(data, dict) else {}
     if isinstance(package, dict):
         if package.get("rust-version"):
@@ -758,9 +795,13 @@ def _parse_web_manifest(text: str, rel: str, result: Inventory) -> None:
     """Flag a browser/WebExtension manifest by its declared manifest_version."""
     try:
         data = json.loads(text)
-    except (json.JSONDecodeError, TypeError):
+    except (ValueError, TypeError):
+        _record_manifest_parse_failure(result, rel, "invalid JSON object")
         return
-    if isinstance(data, dict) and "manifest_version" in data:
+    if not isinstance(data, dict):
+        _record_manifest_parse_failure(result, rel, "invalid JSON object")
+        return
+    if "manifest_version" in data:
         _append_unique(
             result.archetype_hints,
             ArchetypeHint("extension manifest", "browser WebExtension manifest", rel),
@@ -769,18 +810,25 @@ def _parse_web_manifest(text: str, rel: str, result: Inventory) -> None:
 
 def _parse_manifest(record: FileRecord, text: str, result: Inventory) -> None:
     filename = Path(record.path).name.lower()
-    if filename == "package.json":
-        _parse_package_json(text, record.path, result)
-    elif filename == "pyproject.toml":
-        _parse_pyproject(text, record.path, result)
-    elif re.fullmatch(r"requirements([-.][a-z0-9_-]+)?\.txt", filename):
-        _parse_requirements(text, record.path, result)
-    elif filename == "go.mod":
-        _parse_go_mod(text, record.path, result)
-    elif filename == "cargo.toml":
-        _parse_cargo_toml(text, record.path, result)
-    elif filename == "manifest.json":
-        _parse_web_manifest(text, record.path, result)
+    try:
+        if filename == "package.json":
+            _parse_package_json(text, record.path, result)
+        elif filename == "pyproject.toml":
+            _parse_pyproject(text, record.path, result)
+        elif re.fullmatch(r"requirements([-.][a-z0-9_-]+)?\.txt", filename):
+            _parse_requirements(text, record.path, result)
+        elif filename == "go.mod":
+            _parse_go_mod(text, record.path, result)
+        elif filename == "cargo.toml":
+            _parse_cargo_toml(text, record.path, result)
+        elif filename == "manifest.json":
+            _parse_web_manifest(text, record.path, result)
+    except Exception as exc:
+        _record_manifest_parse_failure(
+            result,
+            record.path,
+            type(exc).__name__,
+        )
 
 
 def _iter_scannable_lines(
@@ -817,8 +865,9 @@ def _scan_install_surfaces(record: FileRecord, text: str) -> List[EvidenceRecord
     ):
         if not action_allowed:
             continue
+        command = re.sub(r"^\s*\$\s+", "", line, count=1)
         for category, pattern in INSTALL_SURFACE_PATTERNS:
-            if pattern.search(line):
+            if pattern.search(command):
                 surfaces.append(
                     EvidenceRecord(
                         category,
@@ -1643,7 +1692,7 @@ def main(argv: List[str]) -> int:
     try:
         result = scan_repository(Path(argv[1]))
     except (OSError, ValueError) as exc:
-        print(f"inventory error: {exc}", file=sys.stderr)
+        print(f"inventory error: {_safe_display(exc)}", file=sys.stderr)
         return 1
     print(render_inventory(result), end="")
     return 0

@@ -674,6 +674,35 @@ class RepositorySurfaceTests(unittest.TestCase):
             self.assertIn(("httpx", ">=0.27"), dependencies)
             self.assertIn(("pyproject.toml", "MIT"), licenses)
             self.assertIn(("runtime", "python >=3.9"), compatibility)
+            self.assertIn(
+                (
+                    "pyproject.toml",
+                    "manifest metadata partially parsed: tomllib unavailable",
+                ),
+                {(item.path, item.reason) for item in result.skipped},
+            )
+
+    def test_cargo_manifest_discloses_when_tomllib_is_unavailable(self):
+        with tempfile.TemporaryDirectory() as root_dir:
+            root = Path(root_dir)
+            (root / "Cargo.toml").write_text(
+                "[package]\n"
+                'name = "demo"\n'
+                "[dependencies]\n"
+                'serde = "1"\n'
+            )
+
+            with mock.patch.object(inventory, "tomllib", None):
+                result = inventory.scan_repository(root)
+
+            self.assertEqual([], result.dependencies)
+            self.assertIn(
+                (
+                    "Cargo.toml",
+                    "manifest metadata parse unavailable: tomllib unavailable",
+                ),
+                {(item.path, item.reason) for item in result.skipped},
+            )
 
 
 class FindingQualityTests(unittest.TestCase):
@@ -767,6 +796,26 @@ class FindingQualityTests(unittest.TestCase):
                     for item in result.findings
                 },
             )
+
+    def test_terminal_prompt_prefixes_do_not_hide_install_surfaces(self):
+        with tempfile.TemporaryDirectory() as root_dir:
+            root = Path(root_dir)
+            (root / "README.md").write_text(
+                "```sh\n"
+                "$ curl https://example.invalid/install | sh\n"
+                "$ sudo cp scout /usr/local/bin/scout\n"
+                "```\n"
+            )
+
+            result = inventory.scan_repository(root)
+
+            surfaces = {
+                (item.category, item.line)
+                for item in result.install_surfaces
+            }
+            self.assertIn(("remote installer execution", 2), surfaces)
+            self.assertIn(("elevated privilege", 3), surfaces)
+            self.assertIn(("outside-repository write", 3), surfaces)
 
     def test_common_application_source_extensions_are_active(self):
         with tempfile.TemporaryDirectory() as root_dir:

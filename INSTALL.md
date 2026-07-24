@@ -2,15 +2,27 @@
 
 `repo-scout` is an Agent Skill: English instructions, two reference files, OpenAI interface metadata, and one Python standard-library scanner. Python is optional because an agent can reproduce the inventory manually; Git or another source-download method is optional for the same reason.
 
-Clone or download this repository first, then copy the inner `repo-scout/` directory to the location your agent discovers.
+Clone or download the latest revision of this repository first. When updating a Git checkout, run `git pull --ff-only` before copying. Then, from the repository root, copy the inner `repo-scout/` directory to the location your agent discovers.
 
 ## Claude Code / Claude Desktop
 
 Personal skill, available across projects:
 
 ```bash
+(
+set -e
 mkdir -p ~/.claude/skills
-cp -R repo-scout ~/.claude/skills/repo-scout
+install_stage="$(mktemp -d ~/.claude/skills/.repo-scout.XXXXXX)"
+trap 'rm -rf "$install_stage"' 0 1 2 15
+if [ -d .git ]; then
+  git archive HEAD repo-scout | tar -x -C "$install_stage" --strip-components=1
+else
+  cp -R repo-scout/. "$install_stage/"
+fi
+rm -rf ~/.claude/skills/repo-scout
+mv "$install_stage" ~/.claude/skills/repo-scout
+trap - 0 1 2 15
+)
 ```
 
 Project-only alternative:
@@ -26,8 +38,20 @@ Claude Code detects changes inside an existing skills directory. Restart it if t
 Personal skill, available across repositories:
 
 ```bash
+(
+set -e
 mkdir -p ~/.agents/skills
-cp -R repo-scout ~/.agents/skills/repo-scout
+install_stage="$(mktemp -d ~/.agents/skills/.repo-scout.XXXXXX)"
+trap 'rm -rf "$install_stage"' 0 1 2 15
+if [ -d .git ]; then
+  git archive HEAD repo-scout | tar -x -C "$install_stage" --strip-components=1
+else
+  cp -R repo-scout/. "$install_stage/"
+fi
+rm -rf ~/.agents/skills/repo-scout
+mv "$install_stage" ~/.agents/skills/repo-scout
+trap - 0 1 2 15
+)
 ```
 
 Project-only alternative:
@@ -43,8 +67,20 @@ Invoke it explicitly with `$repo-scout`, or let Codex select it from the descrip
 Gemini CLI supports project Agent Skills under `.agents/skills/`:
 
 ```bash
+(
+set -e
 mkdir -p <project>/.agents/skills
-cp -R repo-scout <project>/.agents/skills/repo-scout
+install_stage="$(mktemp -d <project>/.agents/skills/.repo-scout.XXXXXX)"
+trap 'rm -rf "$install_stage"' 0 1 2 15
+if [ -d .git ]; then
+  git archive HEAD repo-scout | tar -x -C "$install_stage" --strip-components=1
+else
+  cp -R repo-scout/. "$install_stage/"
+fi
+rm -rf <project>/.agents/skills/repo-scout
+mv "$install_stage" <project>/.agents/skills/repo-scout
+trap - 0 1 2 15
+)
 ```
 
 Start Gemini CLI from that project and ask it to use `repo-scout` on a repository URL.

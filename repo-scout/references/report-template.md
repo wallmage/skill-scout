@@ -48,7 +48,7 @@ Answer "will this run for me, and how?" with one recommended way — never a men
 
 Derive everything from the project's own install docs and files; describe, never execute during the audit. If the project's own instructions are unclear or wrong, say so in plain words — that is honest, report-worthy evidence.
 
-Close the report with one line, `Source: <link>`, and the single assisted-install offer: whether you should set it all up, naming the one recommended way (SKILL §Offer assisted installation). Ask once; no offer after an unapproved 🔴.
+Close the report with one line, `Source: <link>`, then follow the existing approval state (SKILL §Offer assisted installation). If the user's request was an audit only, add the single assisted-install offer, naming the one recommended way. If the user gave an imperative install, setup, or adoption request, do not ask again; continue with the approved installation after the report. No offer after an unapproved 🔴.
 
 ## The deep dive — researched, never volunteered
 

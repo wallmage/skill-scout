@@ -56,15 +56,39 @@ Stars, followers, and README claims never prove implementation quality. Source f
 
 **Claude Code / Claude Desktop**
 ```bash
-git clone https://github.com/wallmage/repo-scout.git
-cp -R repo-scout/repo-scout ~/.claude/skills/repo-scout
+(
+set -e
+source_stage="$(mktemp -d "${TMPDIR:-/tmp}/repo-scout-source.XXXXXX")"
+install_stage=""
+trap 'rm -rf "$source_stage" "$install_stage"' 0 1 2 15
+git clone --depth 1 https://github.com/wallmage/repo-scout.git "$source_stage/checkout"
+mkdir -p ~/.claude/skills
+install_stage="$(mktemp -d ~/.claude/skills/.repo-scout.XXXXXX)"
+cp -R "$source_stage/checkout/repo-scout/." "$install_stage/"
+rm -rf ~/.claude/skills/repo-scout
+mv "$install_stage" ~/.claude/skills/repo-scout
+rm -rf "$source_stage"
+trap - 0 1 2 15
+)
 ```
 Or download `repo-scout.skill` and click **Save skill**.
 
 **OpenAI Codex**
 ```bash
+(
+set -e
+source_stage="$(mktemp -d "${TMPDIR:-/tmp}/repo-scout-source.XXXXXX")"
+install_stage=""
+trap 'rm -rf "$source_stage" "$install_stage"' 0 1 2 15
+git clone --depth 1 https://github.com/wallmage/repo-scout.git "$source_stage/checkout"
 mkdir -p ~/.agents/skills
-cp -R repo-scout/repo-scout ~/.agents/skills/repo-scout
+install_stage="$(mktemp -d ~/.agents/skills/.repo-scout.XXXXXX)"
+cp -R "$source_stage/checkout/repo-scout/." "$install_stage/"
+rm -rf ~/.agents/skills/repo-scout
+mv "$install_stage" ~/.agents/skills/repo-scout
+rm -rf "$source_stage"
+trap - 0 1 2 15
+)
 ```
 
 **Gemini CLI and other Agent Skills tools** → see [INSTALL.md](INSTALL.md) for native project and personal discovery paths.
@@ -138,15 +162,39 @@ Install this for me: https://github.com/someone/viral-skill   ← gets vetted fi
 
 **Claude Code / Claude 桌面版**
 ```bash
-git clone https://github.com/wallmage/repo-scout.git
-cp -R repo-scout/repo-scout ~/.claude/skills/repo-scout
+(
+set -e
+source_stage="$(mktemp -d "${TMPDIR:-/tmp}/repo-scout-source.XXXXXX")"
+install_stage=""
+trap 'rm -rf "$source_stage" "$install_stage"' 0 1 2 15
+git clone --depth 1 https://github.com/wallmage/repo-scout.git "$source_stage/checkout"
+mkdir -p ~/.claude/skills
+install_stage="$(mktemp -d ~/.claude/skills/.repo-scout.XXXXXX)"
+cp -R "$source_stage/checkout/repo-scout/." "$install_stage/"
+rm -rf ~/.claude/skills/repo-scout
+mv "$install_stage" ~/.claude/skills/repo-scout
+rm -rf "$source_stage"
+trap - 0 1 2 15
+)
 ```
 也可以下载 `repo-scout.skill`，点击 **Save skill**。
 
 **OpenAI Codex**
 ```bash
+(
+set -e
+source_stage="$(mktemp -d "${TMPDIR:-/tmp}/repo-scout-source.XXXXXX")"
+install_stage=""
+trap 'rm -rf "$source_stage" "$install_stage"' 0 1 2 15
+git clone --depth 1 https://github.com/wallmage/repo-scout.git "$source_stage/checkout"
 mkdir -p ~/.agents/skills
-cp -R repo-scout/repo-scout ~/.agents/skills/repo-scout
+install_stage="$(mktemp -d ~/.agents/skills/.repo-scout.XXXXXX)"
+cp -R "$source_stage/checkout/repo-scout/." "$install_stage/"
+rm -rf ~/.agents/skills/repo-scout
+mv "$install_stage" ~/.agents/skills/repo-scout
+rm -rf "$source_stage"
+trap - 0 1 2 15
+)
 ```
 
 **Gemini CLI 及其他支持 Agent Skills 的工具** → 见 [INSTALL.md](INSTALL.md)，装到各工具自己的个人或项目 skill 目录即可。

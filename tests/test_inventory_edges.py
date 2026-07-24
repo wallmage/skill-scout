@@ -23,6 +23,124 @@ SPEC.loader.exec_module(inventory)
 
 
 class MetadataParserTests(unittest.TestCase):
+    def test_manifest_parser_failures_do_not_abort_the_repository_scan(self):
+        cases = {
+            "package.json": (
+                "_parse_package_json",
+                ValueError("invalid number"),
+                "ValueError",
+            ),
+            "Cargo.toml": (
+                "_parse_cargo_toml",
+                TypeError("unsupported TOML value"),
+                "TypeError",
+            ),
+            "pyproject.toml": (
+                "_parse_pyproject",
+                RuntimeError("unexpected parser failure"),
+                "RuntimeError",
+            ),
+            "requirements.txt": (
+                "_parse_requirements",
+                UnicodeError("unexpected requirement failure"),
+                "UnicodeError",
+            ),
+        }
+
+        for manifest_name, (
+            parser_name,
+            parser_error,
+            exception_name,
+        ) in cases.items():
+            with self.subTest(manifest=manifest_name), tempfile.TemporaryDirectory() as root_dir:
+                root = Path(root_dir)
+                (root / "README.md").write_text("# Still inspected\n")
+                (root / manifest_name).write_text("{}\n")
+
+                with mock.patch.object(
+                    inventory,
+                    parser_name,
+                    side_effect=parser_error,
+                ):
+                    result = inventory.scan_repository(root)
+
+                self.assertIn(
+                    "README.md",
+                    {record.path for record in result.scanned_files},
+                )
+                self.assertIn(
+                    (
+                        manifest_name,
+                        f"manifest metadata parse failed: {exception_name}",
+                    ),
+                    {(record.path, record.reason) for record in result.skipped},
+                )
+
+    def test_real_manifest_value_edge_cases_do_not_abort_the_scan(self):
+        if inventory.tomllib is None:
+            self.skipTest("tomllib edge cases require Python 3.11+")
+
+        cases = {
+            "Cargo.toml": (
+                "[dependencies]\n"
+                "demo = { version = 2026-07-24 }\n",
+                "TypeError",
+            ),
+            "pyproject.toml": (
+                "[build-system]\n"
+                "requires = 2026-07-24\n",
+                "TypeError",
+            ),
+        }
+
+        for manifest_name, (content, exception_name) in cases.items():
+            with self.subTest(manifest=manifest_name), tempfile.TemporaryDirectory() as root_dir:
+                root = Path(root_dir)
+                (root / "README.md").write_text("# Still inspected\n")
+                (root / manifest_name).write_text(content)
+
+                result = inventory.scan_repository(root)
+
+                self.assertIn(
+                    "README.md",
+                    {record.path for record in result.scanned_files},
+                )
+                self.assertIn(
+                    (
+                        manifest_name,
+                        f"manifest metadata parse failed: {exception_name}",
+                    ),
+                    {(record.path, record.reason) for record in result.skipped},
+                )
+
+    def test_malformed_manifest_metadata_is_disclosed(self):
+        cases = {
+            "package.json": ("not JSON", "invalid JSON object"),
+            "manifest.json": ("[", "invalid JSON object"),
+        }
+        if inventory.tomllib is not None:
+            cases.update(
+                {
+                    "Cargo.toml": ("[package", "invalid TOML"),
+                    "pyproject.toml": ("[project", "invalid TOML"),
+                }
+            )
+
+        for manifest_name, (content, reason) in cases.items():
+            with self.subTest(manifest=manifest_name), tempfile.TemporaryDirectory() as root_dir:
+                root = Path(root_dir)
+                (root / manifest_name).write_text(content)
+
+                result = inventory.scan_repository(root)
+
+                self.assertIn(
+                    (
+                        manifest_name,
+                        f"manifest metadata parse failed: {reason}",
+                    ),
+                    {(record.path, record.reason) for record in result.skipped},
+                )
+
     def test_frontmatter_parser_handles_absent_valid_and_invalid_scalars(self):
         self.assertEqual((None, None), inventory.parse_frontmatter("# No metadata\n"))
         self.assertEqual("quoted", inventory._parse_scalar('"quoted"'))
@@ -645,10 +763,13 @@ class RenderingAndCliTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root_dir, mock.patch.object(
             inventory,
             "scan_repository",
-            side_effect=ValueError("changed"),
+            side_effect=ValueError("changed\x1b[2J\u202e"),
         ), contextlib.redirect_stderr(stderr):
             self.assertEqual(1, inventory.main(["inventory.py", root_dir]))
-        self.assertIn("inventory error: changed", stderr.getvalue())
+        error_output = stderr.getvalue()
+        self.assertIn(r"inventory error: changed\x1b[2J\u202e", error_output)
+        self.assertNotIn("\x1b", error_output)
+        self.assertNotIn("\u202e", error_output)
 
         with tempfile.TemporaryDirectory() as root_dir:
             Path(root_dir, "README.md").write_text("hello\n")
